@@ -21,14 +21,14 @@ export const manifest = setupManifest({
   images: {
     monerod: {
       source: {
-        dockerTag: 'ghcr.io/sethforprivacy/simple-monerod:v0.18.4.5',
+        dockerTag: 'ghcr.io/sethforprivacy/simple-monerod:v0.18.4.6',
       },
       arch: ['x86_64', 'aarch64'],
     },
     'wallet-rpc': {
       source: {
         dockerTag:
-          'ghcr.io/sethforprivacy/simple-monero-wallet-rpc:v0.18.4.5',
+          'ghcr.io/sethforprivacy/simple-monero-wallet-rpc:v0.18.4.6',
       },
       arch: ['x86_64', 'aarch64'],
     },
