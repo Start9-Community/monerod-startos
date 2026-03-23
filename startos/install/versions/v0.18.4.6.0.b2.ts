@@ -60,6 +60,10 @@ export const v_0_18_4_6_0_b2 = VersionInfo.of({
   version: '0.18.4.6:0-beta.2',
   releaseNotes: {
     en_US: 'Update to StartOS SDK beta.65',
+    es_ES: 'Actualización a StartOS SDK beta.65',
+    de_DE: 'Update auf StartOS SDK beta.65',
+    pl_PL: 'Aktualizacja do StartOS SDK beta.65',
+    fr_FR: 'Mise à jour vers StartOS SDK beta.65',
   },
   migrations: {
     up: async ({ effects }) => {
