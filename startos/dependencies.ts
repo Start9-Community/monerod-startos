@@ -4,7 +4,7 @@ import { sdk } from './sdk'
 const torDep = {
   tor: {
     kind: 'running' as const,
-    versionRange: '>=0.4.9.5:0-beta.0',
+    versionRange: '>=0.4.9.5:0-beta.4',
     healthChecks: [],
   },
 }
