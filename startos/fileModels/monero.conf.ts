@@ -430,7 +430,7 @@ function formToFile(
   input: T.DeepPartial<typeof fullConfigSpec._TYPE>,
 ): MoneroConf {
   const {
-    raw,
+    raw: rawInput,
     'max-txpool-weight': maxTxpoolMiB,
     zmq,
     pruning,
@@ -441,6 +441,16 @@ function formToFile(
     'rpc-credentials': rpcCredentials,
     ...rest
   } = input
+
+  // The shape's z.literal(X).catch(X) entries are the single source of truth
+  // for enforced values. But FileHelper.ini validates through the InputSpec's
+  // partialValidator — which permits `raw` to be undefined — so on the first
+  // install seed (moneroConfFile.merge(effects, {})) `rawInput` arrives
+  // undefined and `...raw` spreads nothing. Parsing through `shape` here
+  // triggers each .catch() default exactly once, without duplicating any
+  // literal. Idempotent on subsequent writes where `rawInput` is already
+  // a fully-populated conf from onRead.
+  const raw = shape.parse(rawInput ?? {})
 
   const peerAddr = (p: { hostname?: string; port?: number | null }) =>
     p.port != null ? `${p.hostname}:${p.port}` : (p.hostname ?? '')

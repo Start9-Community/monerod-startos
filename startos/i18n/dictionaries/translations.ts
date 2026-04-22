@@ -130,6 +130,7 @@ export default {
     125: 'Auto-Configurar',
     126: 'Configure monero.conf automáticamente según las necesidades de otro servicio',
     127: 'Estos campos fueron proporcionados por una tarea y no pueden editarse',
+    128: 'Solo salientes. Publique una dirección IP para habilitar las entrantes.',
   } satisfies LangDict,
   de_DE: {
     0: 'Monero wird gestartet!',
@@ -260,6 +261,7 @@ export default {
     125: 'Automatisch konfigurieren',
     126: 'monero.conf automatisch für die Anforderungen eines anderen Dienstes konfigurieren',
     127: 'Diese Felder wurden von einer Aufgabe bereitgestellt und können nicht bearbeitet werden',
+    128: 'Nur ausgehend. Veröffentlichen Sie eine IP-Adresse, um eingehende Verbindungen zu aktivieren.',
   } satisfies LangDict,
   pl_PL: {
     0: 'Uruchamianie Monero!',
@@ -390,6 +392,7 @@ export default {
     125: 'Automatyczna konfiguracja',
     126: 'Automatycznie skonfiguruj monero.conf pod potrzeby innej usługi',
     127: 'Te pola zostały dostarczone przez zadanie i nie mogą być edytowane',
+    128: 'Tylko wychodzące. Opublikuj adres IP, aby włączyć połączenia przychodzące.',
   } satisfies LangDict,
   fr_FR: {
     0: 'Démarrage de Monero !',
@@ -520,5 +523,6 @@ export default {
     125: 'Configuration automatique',
     126: 'Configurer automatiquement monero.conf selon les besoins d\'un autre service',
     127: 'Ces champs ont été fournis par une tâche et ne peuvent pas être modifiés',
+    128: 'Sortantes uniquement. Publiez une adresse IP pour activer les connexions entrantes.',
   } satisfies LangDict,
 } satisfies Record<string, LangDict>

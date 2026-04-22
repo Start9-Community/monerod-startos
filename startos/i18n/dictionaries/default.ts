@@ -22,6 +22,7 @@ const dict = {
   'Outbound only': 17,
   Clearnet: 18,
   'Excluded by outbound proxy': 19,
+  'Outbound only. Publish an IP address to enable inbound.': 128,
 
   // interfaces.ts
   'Peer Interface': 20,

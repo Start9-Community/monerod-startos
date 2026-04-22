@@ -29,16 +29,23 @@ export const main = sdk.setupMain(async ({ effects }) => {
   // Tor container IP — restarts monerod if it changes
   const torIp = await sdk.getContainerIp(effects, { packageId: 'tor' }).const()
 
-  // Peer interface's own onion URL — restarts monerod if it changes.
-  // Needed to construct --anonymous-inbound.
-  const peerOnionUrl = await sdk.serviceInterface
-    .getOwn(effects, 'peer', (iface) =>
-      (iface?.addressInfo?.public.format() || []).find((url) =>
-        url.includes('.onion'),
-      ),
-    )
-    .const()
-  const peerOnionHost = peerOnionUrl ? new URL(peerOnionUrl).hostname : ''
+  // Peer interface reachability — restarts monerod if either value changes.
+  //   onionHost: own onion hostname (from the Tor plugin), needed for
+  //     --anonymous-inbound
+  //   hasPublicIpv4: whether a public IPv4 is published, gating clearnet
+  //     inbound (without one, monerod can only make outbound clearnet conns)
+  const { onionHost: peerOnionHost, hasPublicIpv4 } =
+    await sdk.serviceInterface
+      .getOwn(effects, 'peer', (iface) => {
+        const pub = iface?.addressInfo?.public
+        return {
+          onionHost:
+            pub?.filter({ pluginId: 'tor' }).hostnames[0]?.hostname ?? '',
+          hasPublicIpv4:
+            (pub?.filter({ kind: 'ipv4' }).hostnames.length ?? 0) > 0,
+        }
+      })
+      .const()
 
   // Track Tor running status for health check display (no restart)
   let torRunning = false
@@ -293,7 +300,11 @@ export const main = sdk.setupMain(async ({ effects }) => {
           }
           return {
             result: 'success',
-            message: i18n('Inbound and outbound connections'),
+            message: hasPublicIpv4
+              ? i18n('Inbound and outbound connections')
+              : i18n(
+                  'Outbound only. Publish an IP address to enable inbound.',
+                ),
           }
         },
       },
