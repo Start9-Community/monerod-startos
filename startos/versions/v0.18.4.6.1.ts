@@ -3,6 +3,7 @@ import { existsSync } from 'fs'
 import { readdir, readFile, rename, rm } from 'fs/promises'
 import { walletRpcConfFile } from '../fileModels/monero-wallet-rpc.conf'
 import { moneroConfFile } from '../fileModels/monero.conf'
+import { storeJson } from '../fileModels/store.json'
 import { zmqPort, zmqPubsubPort } from '../utils'
 
 interface OldCredentials {
@@ -30,7 +31,6 @@ interface OldConfigYaml {
       maxnuminpeers?: number
       letneighborsgossip?: boolean
       publicrpc?: boolean
-      spynodebanlist?: boolean
       strictnodes?: boolean
       peer?: OldPeer[]
     }
@@ -49,21 +49,16 @@ interface OldConfigYaml {
   txpool?: {
     maxbytes?: number
   }
-  integrations?: {
-    blocknotify?: {
-      btcpayserver?: boolean
-    }
-  }
 }
 
-export const v_0_18_4_6_0 = VersionInfo.of({
-  version: '0.18.4.6:0',
+export const v_0_18_4_6_1 = VersionInfo.of({
+  version: '0.18.4.6:1',
   releaseNotes: {
-    en_US: 'Update to StartOS SDK beta.65',
-    es_ES: 'Actualización a StartOS SDK beta.65',
-    de_DE: 'Update auf StartOS SDK beta.65',
-    pl_PL: 'Aktualizacja do StartOS SDK beta.65',
-    fr_FR: 'Mise à jour vers StartOS SDK beta.65',
+    en_US: 'Internal updates (start-sdk 1.2.0)',
+    es_ES: 'Actualizaciones internas (start-sdk 1.2.0)',
+    de_DE: 'Interne Aktualisierungen (start-sdk 1.2.0)',
+    pl_PL: 'Aktualizacje wewnętrzne (start-sdk 1.2.0)',
+    fr_FR: 'Mises à jour internes (start-sdk 1.2.0)',
   },
   migrations: {
     up: async ({ effects }) => {
@@ -74,7 +69,7 @@ export const v_0_18_4_6_0 = VersionInfo.of({
       ).then(YAML.parse, () => undefined)
 
       if (configYaml) {
-        const { rpc, advanced, ratelimit, txpool, integrations } = configYaml
+        const { rpc, advanced, ratelimit, txpool } = configYaml
         const p2p = advanced?.p2p
         const tor = advanced?.tor
         const rpcCreds = rpc?.['rpc-credentials']
@@ -83,9 +78,26 @@ export const v_0_18_4_6_0 = VersionInfo.of({
 
         const gossipEnabled = p2p?.letneighborsgossip !== false
 
+        // Migrate Tor intents into store.json. Tor-related monerod keys
+        // (proxy / tx-proxy / anonymous-inbound / pad-transactions) are NOT
+        // written to monero.conf — main.ts synthesises those CLI args at
+        // runtime from the intents plus the live Tor container IP.
+        if (tor) {
+          const toronlyActive = tor.toronly === true
+          await storeJson.merge(effects, {
+            outboundProxy: toronlyActive ? 'tor' : 'none',
+            padTransactions: false,
+            torOutbound: toronlyActive,
+            torInbound: toronlyActive,
+            // null on these three = use monerod's upstream default (16, 16,
+            // noise enabled). Only carry over explicit user values.
+            torMaxOutboundConns: tor.maxsocksconns ?? null,
+            torMaxInboundConns: tor.maxonionconns ?? null,
+            torDandelionNoise: tor.dandelion === false ? false : null,
+          })
+        }
+
         // Build monero.conf from old config — zod .catch() fills missing defaults
-        // Note: Tor settings are NOT migrated — Tor is now a separate service
-        // and the user must configure it via the Networking action after installing Tor.
         const confSettings: Record<string, any> = {}
 
         if (p2p?.maxnumoutpeers != null) {
@@ -133,14 +145,12 @@ export const v_0_18_4_6_0 = VersionInfo.of({
           confSettings['prune-blockchain'] = 1
         }
 
-        if (!p2p?.spynodebanlist) {
-          confSettings['ban-list'] = undefined
-        }
-
-        if (integrations?.blocknotify?.btcpayserver) {
-          confSettings['block-notify'] =
-            '/usr/bin/curl -so /dev/null -X GET http://btcpayserver.embassy:23000/monerolikedaemoncallback/block?cryptoCode=xmr&hash=%s'
-        }
+        // `ban-list` path is enforced via zod literal in monero.conf; the
+        // list contents are now managed via the Ban List action.
+        //
+        // `block-notify` is a free-text field managed via the Other Settings
+        // action. It is not auto-configured here — dependent services that
+        // want block notifications should set it via their own mechanisms.
 
         // Peers
         const peers = p2p?.peer

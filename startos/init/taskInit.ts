@@ -1,19 +1,18 @@
-import { moneroConfFile } from '../fileModels/monero.conf'
+import { banListFile } from '../fileModels/banList'
 import { walletRpcConfFile } from '../fileModels/monero-wallet-rpc.conf'
+import { moneroConfFile } from '../fileModels/monero.conf'
 import { storeJson } from '../fileModels/store.json'
 import { sdk } from '../sdk'
 
 export const taskInit = sdk.setupOnInit(async (effects) => {
   await Promise.all([
-    moneroConfFile.merge(effects, {
-      'no-zmq': 1,
-      'disable-rpc-ban': 1,
-      igd: 'disabled',
-      'ban-list': '/home/monero/ban_list.txt',
-    } as any),
+    moneroConfFile.merge(effects, {}),
     walletRpcConfFile.merge(effects, {
       'disable-rpc-login': 1,
-    } as any),
+    }),
     storeJson.merge(effects, {}),
+    // monerod hard-fails at startup if --ban-list points to a missing file,
+    // and the path is enforced in monero.conf, so guarantee it exists.
+    banListFile.merge(effects, {}),
   ])
 })

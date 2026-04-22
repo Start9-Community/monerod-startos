@@ -1,12 +1,11 @@
 import { FileHelper, T, z } from '@start9labs/start-sdk'
+import { banListPath } from './banList'
 import { i18n } from '../i18n'
 import { sdk } from '../sdk'
 import {
-  fromTorSettings,
   p2pPort,
   rpcPort,
   rpcRestrictedPort,
-  torDefaults,
   zmqPort,
   zmqPubsubPort,
 } from '../utils'
@@ -58,6 +57,7 @@ export const shape = z.object({
   'enforce-dns-checkpointing': z.literal(0).catch(0),
   'disable-dns-checkpoints': z.literal(1).catch(1),
   'check-updates': z.literal('disabled').catch('disabled'),
+  igd: z.literal('disabled').catch('disabled'),
 
   // Configurable
   'out-peers': iniNumber,
@@ -72,18 +72,24 @@ export const shape = z.object({
   'zmq-pub': iniString,
   'disable-rpc-ban': iniNumber,
   'hide-my-port': iniNumber,
-  igd: iniString,
   'public-node': iniNumber,
   'prune-blockchain': iniNumber,
-  'pad-transactions': iniNumber,
-  'ban-list': iniString,
   'block-notify': iniString,
   'add-peer': iniStringArray,
   'add-priority-node': iniStringArray,
   'add-exclusive-node': iniStringArray,
-  'tx-proxy': iniString,
-  proxy: iniString,
-  'anonymous-inbound': iniString,
+
+  // Enforced path — the ban-list file itself is managed by the Ban List
+  // action via the banListFile file model at this path.
+  'ban-list': z.literal(banListPath).catch(banListPath),
+
+  // Enforced undefined — these are managed as CLI args in main.ts
+  // (driven by store.json anonymity intents + live Tor container IP).
+  // Hand-edits to monero.conf for these keys will be stripped on next read.
+  'pad-transactions': z.undefined().catch(undefined),
+  'tx-proxy': z.undefined().catch(undefined),
+  proxy: z.undefined().catch(undefined),
+  'anonymous-inbound': z.undefined().catch(undefined),
 })
 
 export type MoneroConf = z.infer<typeof shape>
@@ -95,9 +101,7 @@ const { InputSpec, Value, Variants, List } = sdk
 const alphanumUnderscore = [
   {
     regex: '^[a-zA-Z0-9_]+$',
-    description: i18n(
-      'Must be alphanumeric and/or can contain an underscore',
-    ),
+    description: i18n('Must be alphanumeric and/or can contain an underscore'),
   },
 ]
 
@@ -118,7 +122,7 @@ const peerSpec = InputSpec.of({
   port: Value.number({
     name: i18n('Port'),
     description: i18n(
-      'TCP Port that peer is listening on for inbound p2p connections. Default: 18080',
+      'TCP Port that peer is listening on for inbound p2p connections.',
     ),
     required: false,
     default: p2pPort,
@@ -137,89 +141,92 @@ export const fullConfigSpec = InputSpec.of({
   raw: Value.hidden(shape),
 
   // ── Other ──
-  maxbytes: Value.number({
+  'max-txpool-weight': Value.number({
     name: i18n('Maximum TX Pool Size'),
     description: i18n(
-      'Keep the unconfirmed transaction memory pool at or below this many megabytes. You may wish to decrease this if you are low on RAM, or increase if you are mining. Default: 648 MiB.',
+      'Keep the unconfirmed transaction memory pool at or below this many megabytes. You may wish to decrease this if you are low on RAM, or increase if you are mining.',
     ),
-    required: true,
-    default: 648,
+    required: false,
+    default: null,
     integer: true,
     min: 1,
     units: i18n('MiB'),
+    footnote: `${i18n('Default')}: 648 MiB. ${i18n('Written to monero.conf as bytes.')}`,
   }),
-  zmq: Value.toggle({
+  zmq: Value.triState({
     name: i18n('ZMQ Interface'),
     description: i18n(
-      'Enable the ZeroMQ interface for real-time block and transaction notifications. Required by some services such as block explorers and mining software. Default: Disabled',
+      'Enable the ZeroMQ interface for real-time block and transaction notifications. Required by some services such as block explorers and mining software.',
     ),
-    default: false,
+    default: null,
+    footnote: `${i18n('Default')}: ${i18n('Disabled')}`,
   }),
-  pruning: Value.toggle({
+  pruning: Value.triState({
     name: i18n('Pruning'),
     description: i18n(
-      'Blockchain pruning prunes proof data from transactions after verification but before storage. Saves roughly 2/3 of disk space. Default: Disabled',
+      'Blockchain pruning prunes proof data from transactions after verification but before storage. Saves roughly 2/3 of disk space.',
     ),
-    default: false,
+    default: null,
+    footnote: `${i18n('Default')}: ${i18n('Disabled')}`,
   }),
-  btcpayserver: Value.toggle({
-    name: i18n('BTCPayServer'),
+  'block-notify': Value.text({
+    name: i18n('Block Notify Command'),
     description: i18n(
-      'Send notifications of new Monero blocks to the BTCPayServer back-end. Default: Disabled',
+      'Shell command monerod runs on every new block. The token `%s` is replaced by the block hash. Leave empty to disable. Example: /usr/bin/curl -so /dev/null https://example.com/notify/%s',
     ),
-    default: false,
+    required: false,
+    default: null,
+    placeholder: '/usr/bin/curl -so /dev/null https://example.com/notify/%s',
   }),
 
   // ── Networking ──
   'in-peers': Value.number({
     name: i18n('Max Peers Incoming'),
     description: i18n(
-      'Maximum number of simultaneous peers connecting inbound to the Monero daemon. Default: 24',
+      'Maximum number of simultaneous peers connecting inbound to the Monero daemon.',
     ),
     required: false,
-    default: 24,
+    default: null,
     integer: true,
     min: 0,
     max: 9999,
+    footnote: `${i18n('Default')}: ${i18n('Unlimited')}`,
   }),
   'out-peers': Value.number({
     name: i18n('Max Peers Outgoing'),
     description: i18n(
-      'Maximum number of simultaneous peers for the Monero daemon to connect outbound to. Default: 12',
+      'Maximum number of simultaneous peers for the Monero daemon to connect outbound to.',
     ),
     required: false,
-    default: 12,
+    default: null,
     integer: true,
     min: 0,
     max: 9999,
+    footnote: `${i18n('Default')}: 12`,
   }),
-  gossip: Value.toggle({
-    name: i18n('Peer Gossip'),
+  'hide-my-port': Value.triState({
+    name: i18n('Hide My Port'),
     description: i18n(
-      'Disabling peer gossip will tell connected peers not to gossip your node info to their peers. This will make your node more private. Leaving this enabled will result in more connections for your node. Default: Enabled',
+      'Tell connected peers not to gossip your p2p port to the rest of the network. Enabling this makes your node more private but results in fewer inbound connections. Maps directly to monerod --hide-my-port.',
     ),
-    default: true,
+    default: null,
+    footnote: `${i18n('Default')}: ${i18n('Disabled')}`,
   }),
-  'ban-list': Value.toggle({
-    name: i18n('Spy Nodes Ban List'),
-    description: i18n(
-      'Use a third-party provided list to ban known spy nodes. Default: Enabled',
-    ),
-    default: true,
-  }),
-  'public-node': Value.toggle({
+  'public-node': Value.triState({
     name: i18n('Advertise RPC Remote Node'),
     description: i18n(
-      'Advertise on the P2P network that your restricted RPC port offers Remote Node services. Caution: this could significantly increase resource use. Default: Disabled',
+      'Advertise on the P2P network that your restricted RPC port offers Remote Node services. Caution: this could significantly increase resource use.',
     ),
-    default: false,
+    default: null,
+    footnote: `${i18n('Default')}: ${i18n('Disabled')}`,
   }),
-  'strict-nodes': Value.toggle({
+  'strict-nodes': Value.triState({
     name: i18n('Specific Nodes Only'),
     description: i18n(
-      'Only connect to the peers specified below and no other peers. Default: Disabled',
+      'Only connect to the peers specified below and no other peers.',
     ),
-    default: false,
+    default: null,
+    footnote: `${i18n('Default')}: ${i18n('Disabled')}`,
   }),
   peer: Value.list(
     List.obj(
@@ -239,79 +246,44 @@ export const fullConfigSpec = InputSpec.of({
       },
     ),
   ),
-  toronly: Value.toggle({
-    name: i18n('Tor Only'),
+  'disable-rpc-ban': Value.triState({
+    name: i18n('Disable RPC Ban'),
     description: i18n(
-      'Only communicate with Monero nodes via Tor. This is more private, but can be slower, especially during initial sync. Default: Enabled',
+      'Disable monerod banning RPC clients that generate errors. Enabling this may help prevent monerod from banning traffic originating from the Tor daemon. Maps directly to monerod --disable-rpc-ban.',
     ),
-    default: torDefaults.toronly,
-  }),
-  'rpc-ban': Value.toggle({
-    name: i18n('Ban Misbehaving RPC Clients'),
-    description: i18n(
-      'Ban hosts that generate RPC errors. Leaving disabled may help prevent monerod from banning traffic originating from the Tor daemon. Default: Disabled',
-    ),
-    default: false,
-  }),
-  maxonionconns: Value.number({
-    name: i18n('Max Tor RPC Connections'),
-    description: i18n(
-      "Maximum number of simultaneous connections allowed to Monero's .onion RPC. Default: 16",
-    ),
-    required: true,
-    default: torDefaults.maxonionconns,
-    integer: true,
-    min: 1,
-    max: 256,
-    units: i18n('Connections'),
-  }),
-  maxsocksconns: Value.number({
-    name: i18n('Max Tor Broadcast Connections'),
-    description: i18n(
-      "Maximum number of simultaneous connections to Tor's SOCKS proxy when broadcasting transactions. Default: 16",
-    ),
-    required: true,
-    default: torDefaults.maxsocksconns,
-    integer: true,
-    min: 1,
-    max: 256,
-    units: i18n('Connections'),
-  }),
-  dandelion: Value.toggle({
-    name: i18n('Dandelion++'),
-    description: i18n(
-      'Enables white noise and Dandelion++ sender node obfuscation scheme. Default: Enabled',
-    ),
-    default: torDefaults.dandelion,
+    default: null,
+    footnote: `${i18n('Default')}: ${i18n('Disabled')}`,
   }),
   'limit-rate-down': Value.number({
     name: i18n('Download Speed Limit'),
     description: i18n(
-      "Keep the Monero p2p node's incoming bandwidth rate limited at or under this many kilobytes per second. Default: 8192 kB/s",
+      "Keep the Monero p2p node's incoming bandwidth rate limited at or under this many kilobytes per second.",
     ),
-    required: true,
-    default: 8192,
+    required: false,
+    default: null,
     integer: true,
     min: 1,
     units: i18n('kB/s'),
+    footnote: `${i18n('Default')}: 8192 kB/s`,
   }),
   'limit-rate-up': Value.number({
     name: i18n('Upload Speed Limit'),
     description: i18n(
-      "Keep the Monero p2p node's outgoing bandwidth rate limited at or under this many kilobytes per second. Default: 2048 kB/s",
+      "Keep the Monero p2p node's outgoing bandwidth rate limited at or under this many kilobytes per second.",
     ),
-    required: true,
-    default: 2048,
+    required: false,
+    default: null,
     integer: true,
     min: 1,
     units: i18n('kB/s'),
+    footnote: `${i18n('Default')}: 2048 kB/s`,
   }),
 
   // ── RPC ──
   'rpc-credentials': Value.union({
     name: i18n('RPC Credentials'),
     description: i18n(
-      'Enable or disable a username and password to access the Monero RPC. Default: Disabled',
+      'Enable or disable a username and password to access the Monero RPC.',
     ),
     default: 'disabled',
     variants: Variants.of({
@@ -387,7 +359,8 @@ function fileToForm(
   conf: MoneroConf,
 ): T.DeepPartial<typeof fullConfigSpec._TYPE> {
   const strictNodes = conf['add-exclusive-node'] !== undefined
-  const tor = fromTorSettings(conf)
+  const hasRegularPeer =
+    conf['add-peer'] !== undefined || conf['add-priority-node'] !== undefined
 
   const peer: Array<{
     hostname: string
@@ -414,25 +387,37 @@ function fileToForm(
     raw: conf,
 
     // Other
-    maxbytes: Math.round((conf['max-txpool-weight'] ?? 648000000) / 1000000),
-    zmq: conf['no-zmq'] === undefined || conf['no-zmq'] === 0,
+    'max-txpool-weight':
+      conf['max-txpool-weight'] !== undefined
+        ? Math.round(conf['max-txpool-weight'] / 1000000)
+        : null,
+    zmq:
+      conf['no-zmq'] === 1
+        ? false
+        : conf['zmq-rpc-bind-port'] !== undefined
+          ? true
+          : null,
     pruning:
-      conf['prune-blockchain'] !== undefined && conf['prune-blockchain'] !== 0,
-    btcpayserver: conf['block-notify'] !== undefined,
+      conf['prune-blockchain'] === undefined
+        ? null
+        : conf['prune-blockchain'] !== 0,
+    'block-notify': conf['block-notify'] ?? null,
 
     // Networking
-    'in-peers': conf['in-peers'],
-    'out-peers': conf['out-peers'],
-    gossip: conf['hide-my-port'] === undefined,
-    'ban-list': conf['ban-list'] !== undefined,
+    'in-peers': conf['in-peers'] ?? null,
+    'out-peers': conf['out-peers'] ?? null,
+    'hide-my-port':
+      conf['hide-my-port'] === undefined ? null : conf['hide-my-port'] === 1,
     'public-node':
-      conf['public-node'] !== undefined && conf['public-node'] !== 0,
-    'strict-nodes': strictNodes,
+      conf['public-node'] === undefined ? null : conf['public-node'] !== 0,
+    'strict-nodes': strictNodes ? true : hasRegularPeer ? false : null,
     peer,
-    ...tor,
-    'rpc-ban': conf['disable-rpc-ban'] === undefined,
-    'limit-rate-down': conf['limit-rate-down'],
-    'limit-rate-up': conf['limit-rate-up'],
+    'disable-rpc-ban':
+      conf['disable-rpc-ban'] === undefined
+        ? null
+        : conf['disable-rpc-ban'] === 1,
+    'limit-rate-down': conf['limit-rate-down'] ?? null,
+    'limit-rate-up': conf['limit-rate-up'] ?? null,
 
     // RPC
     'rpc-credentials': parseRpcLogin(conf['rpc-login']),
@@ -446,11 +431,12 @@ function formToFile(
 ): MoneroConf {
   const {
     raw,
-    maxbytes,
+    'max-txpool-weight': maxTxpoolMiB,
     zmq,
     pruning,
-    btcpayserver,
-    gossip,
+    'block-notify': blockNotify,
+    'hide-my-port': hideMyPort,
+    'disable-rpc-ban': disableRpcBan,
     peer,
     'rpc-credentials': rpcCredentials,
     ...rest
@@ -461,6 +447,7 @@ function formToFile(
   const peers = (peer ?? []).filter((p): p is NonNullable<typeof p> => !!p)
   const regular = peers.filter((p) => !p.priority)
   const priority = peers.filter((p) => p.priority)
+  const strictMode = rest['strict-nodes'] === true
 
   const rpcLogin =
     rpcCredentials?.selection === 'enabled'
@@ -471,38 +458,31 @@ function formToFile(
     ...raw,
 
     // Other
-    'max-txpool-weight': maxbytes ? maxbytes * 1000000 : undefined,
-    'prune-blockchain': pruning ? 1 : undefined,
-    'block-notify': btcpayserver
-      ? '/usr/bin/curl -so /dev/null -X GET http://btcpayserver.embassy:23000/monerolikedaemoncallback/block?cryptoCode=xmr&hash=%s'
-      : undefined,
-    'no-zmq': zmq ? undefined : 1,
-    'zmq-rpc-bind-ip': zmq ? '0.0.0.0' : undefined,
-    'zmq-rpc-bind-port': zmq ? zmqPort : undefined,
-    'zmq-pub': zmq ? `tcp://0.0.0.0:${zmqPubsubPort}` : undefined,
+    'max-txpool-weight':
+      maxTxpoolMiB != null ? maxTxpoolMiB * 1000000 : undefined,
+    'prune-blockchain': pruning == null ? undefined : pruning ? 1 : 0,
+    'block-notify': blockNotify ? blockNotify : undefined,
+    'no-zmq': zmq == null ? undefined : zmq ? 0 : 1,
+    'zmq-rpc-bind-ip': zmq === true ? '0.0.0.0' : undefined,
+    'zmq-rpc-bind-port': zmq === true ? zmqPort : undefined,
+    'zmq-pub': zmq === true ? `tcp://0.0.0.0:${zmqPubsubPort}` : undefined,
 
-    // Networking (simple fields — tor INI fields come from raw passthrough)
-    'out-peers': rest['out-peers'] as number | undefined,
-    'in-peers': rest['in-peers'] as number | undefined,
-    'limit-rate-up': rest['limit-rate-up'],
-    'limit-rate-down': rest['limit-rate-down'],
-    'disable-rpc-ban': rest['rpc-ban'] ? undefined : 1,
-    'public-node': rest['public-node'] ? 1 : undefined,
-    'ban-list': rest['ban-list'] ? '/home/monero/ban_list.txt' : undefined,
-    'hide-my-port': gossip ? undefined : 1,
-    igd: !gossip || rest.toronly ? 'disabled' : undefined,
+    // Networking
+    'out-peers': rest['out-peers'] ?? undefined,
+    'in-peers': rest['in-peers'] ?? undefined,
+    'limit-rate-up': rest['limit-rate-up'] ?? undefined,
+    'limit-rate-down': rest['limit-rate-down'] ?? undefined,
+    'disable-rpc-ban':
+      disableRpcBan == null ? undefined : disableRpcBan ? 1 : 0,
+    'public-node':
+      rest['public-node'] == null ? undefined : rest['public-node'] ? 1 : 0,
+    'hide-my-port': hideMyPort == null ? undefined : hideMyPort ? 1 : 0,
     'add-peer':
-      !rest['strict-nodes'] && regular.length > 0
-        ? regular.map(peerAddr)
-        : undefined,
+      !strictMode && regular.length > 0 ? regular.map(peerAddr) : undefined,
     'add-priority-node':
-      !rest['strict-nodes'] && priority.length > 0
-        ? priority.map(peerAddr)
-        : undefined,
+      !strictMode && priority.length > 0 ? priority.map(peerAddr) : undefined,
     'add-exclusive-node':
-      rest['strict-nodes'] && peers.length > 0
-        ? peers.map(peerAddr)
-        : undefined,
+      strictMode && peers.length > 0 ? peers.map(peerAddr) : undefined,
 
     // RPC
     'rpc-login': rpcLogin,

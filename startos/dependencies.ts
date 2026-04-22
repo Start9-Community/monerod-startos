@@ -1,15 +1,23 @@
-import { moneroConfFile } from './fileModels/monero.conf'
+import { storeJson } from './fileModels/store.json'
 import { sdk } from './sdk'
 
-const torDep = {
-  tor: {
-    kind: 'running' as const,
-    versionRange: '>=0.4.9.5:0',
-    healthChecks: [],
-  },
-}
-
 export const setDependencies = sdk.setupDependencies(async ({ effects }) => {
-  const toronly = await moneroConfFile.read((c) => c?.toronly).const(effects)
-  return toronly ? torDep : {}
+  const needsTor = await storeJson
+    .read(
+      (s) =>
+        s?.outboundProxy === 'tor' ||
+        s?.torOutbound === true ||
+        s?.torInbound === true,
+    )
+    .const(effects)
+
+  return needsTor
+    ? {
+        tor: {
+          kind: 'running',
+          versionRange: '>=0.4.9.5:0',
+          healthChecks: [],
+        },
+      }
+    : {}
 })

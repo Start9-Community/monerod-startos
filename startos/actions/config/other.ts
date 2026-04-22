@@ -7,7 +7,9 @@ export const otherConfig = sdk.Action.withInput(
 
   async ({ effects }) => ({
     name: i18n('Other Settings'),
-    description: i18n('Configure mempool, ZMQ, pruning, and integrations'),
+    description: i18n(
+      'Configure mempool, ZMQ, pruning, and block-notify command',
+    ),
     warning: null,
     allowedStatuses: 'any',
     group: i18n('Configuration'),
@@ -15,10 +17,10 @@ export const otherConfig = sdk.Action.withInput(
   }),
 
   fullConfigSpec.filter({
-    maxbytes: true,
+    'max-txpool-weight': true,
     zmq: true,
     pruning: true,
-    btcpayserver: true,
+    'block-notify': true,
   }),
 
   ({ effects }) => moneroConfFile.read().once(),

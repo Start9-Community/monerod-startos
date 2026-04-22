@@ -39,11 +39,6 @@ export const setInterfaces = sdk.setupInterfaces(async ({ effects }) => {
   const rpcMulti = sdk.MultiHost.of(effects, 'rpc-restricted')
   const rpcOrigin = await rpcMulti.bindPort(rpcRestrictedPort, {
     protocol: 'http',
-    addSsl: {
-      preferredExternalPort: 443,
-      alpn: null,
-      addXForwardedHeaders: false,
-    },
     preferredExternalPort: rpcRestrictedPort,
   })
   const rpc = sdk.createInterface(effects, {
@@ -63,11 +58,6 @@ export const setInterfaces = sdk.setupInterfaces(async ({ effects }) => {
   const walletMulti = sdk.MultiHost.of(effects, 'rpc-wallet')
   const walletOrigin = await walletMulti.bindPort(walletRpcPort, {
     protocol: 'http',
-    addSsl: {
-      preferredExternalPort: walletRpcPort,
-      alpn: null,
-      addXForwardedHeaders: false,
-    },
     preferredExternalPort: walletRpcPort,
   })
   const wallet = sdk.createInterface(effects, {
@@ -87,13 +77,13 @@ export const setInterfaces = sdk.setupInterfaces(async ({ effects }) => {
 
   // ZMQ interfaces (only when ZMQ is enabled in config)
   const conf = await moneroConfFile.read().once()
-  if (conf && !conf['no-zmq']) {
+  if (conf && conf.zmq) {
     const zmqMulti = sdk.MultiHost.of(effects, 'zmq')
     const zmqOrigin = await zmqMulti.bindPort(zmqPort, {
-      protocol: null,
-      addSsl: null,
       preferredExternalPort: zmqPort,
+      addSsl: null,
       secure: { ssl: false },
+      protocol: null,
     })
     const zmq = sdk.createInterface(effects, {
       name: i18n('ZeroMQ Interface'),
@@ -112,9 +102,9 @@ export const setInterfaces = sdk.setupInterfaces(async ({ effects }) => {
 
     const zmqPubMulti = sdk.MultiHost.of(effects, 'zmq-pubsub')
     const zmqPubOrigin = await zmqPubMulti.bindPort(zmqPubsubPort, {
+      preferredExternalPort: zmqPubsubPort,
       protocol: null,
       addSsl: null,
-      preferredExternalPort: zmqPubsubPort,
       secure: { ssl: false },
     })
     const zmqPub = sdk.createInterface(effects, {

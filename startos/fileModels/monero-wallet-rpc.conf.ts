@@ -74,7 +74,7 @@ export const walletRpcConfigSpec = InputSpec.of({
   'wallet-rpc-credentials': Value.union({
     name: i18n('Wallet RPC Credentials'),
     description: i18n(
-      'Enable or disable a username and password to access the Monero wallet RPC. Default: Disabled',
+      'Enable or disable a username and password to access the Monero wallet RPC.',
     ),
     default: 'disabled',
     variants: Variants.of({

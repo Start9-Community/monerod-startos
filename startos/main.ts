@@ -1,14 +1,75 @@
 import { rm } from 'fs/promises'
+import { moneroConfFile } from './fileModels/monero.conf'
 import { storeJson } from './fileModels/store.json'
 import { i18n } from './i18n'
 import { sdk } from './sdk'
-import { rpcRestrictedPort, walletRpcPort } from './utils'
+import {
+  p2pLocalBindPort,
+  p2pPort,
+  rpcRestrictedPort,
+  torSocksPort,
+  walletRpcPort,
+} from './utils'
 
 export const main = sdk.setupMain(async ({ effects }) => {
   /**
    * ======================== Setup ========================
    */
   console.info(i18n('Starting Monero!'))
+
+  // Watch monero.conf so daemon restarts when the file changes
+  await moneroConfFile.read().const(effects)
+
+  // Anonymity intents live in store.json and drive the Tor CLI args below.
+  // init seeds store.json, so the read is guaranteed non-null here.
+  const store = (await storeJson.read().const(effects))!
+  const anyTorUse =
+    store.outboundProxy === 'tor' || store.torOutbound || store.torInbound
+
+  // Tor container IP — restarts monerod if it changes
+  const torIp = await sdk.getContainerIp(effects, { packageId: 'tor' }).const()
+
+  // Peer interface's own onion URL — restarts monerod if it changes.
+  // Needed to construct --anonymous-inbound.
+  const peerOnionUrl = await sdk.serviceInterface
+    .getOwn(effects, 'peer', (iface) =>
+      (iface?.addressInfo?.public.format() || []).find((url) =>
+        url.includes('.onion'),
+      ),
+    )
+    .const()
+  const peerOnionHost = peerOnionUrl ? new URL(peerOnionUrl).hostname : ''
+
+  // Track Tor running status for health check display (no restart)
+  let torRunning = false
+  if (torIp) {
+    sdk.getStatus(effects, { packageId: 'tor' }).onChange((status) => {
+      torRunning = status?.desired.main === 'running'
+      return { cancel: false }
+    })
+  }
+
+  const anonymityArgs: string[] = []
+  if (torIp && store.outboundProxy === 'tor') {
+    anonymityArgs.push('--proxy', `${torIp}:${torSocksPort}`)
+  }
+  if (torIp && store.torOutbound) {
+    const txProxy =
+      `tor,${torIp}:${torSocksPort},${store.torMaxOutboundConns ?? 16}` +
+      (store.torDandelionNoise === false ? ',disable_noise' : '')
+    anonymityArgs.push('--tx-proxy', txProxy)
+  }
+  if (torIp && store.torInbound && peerOnionHost) {
+    anonymityArgs.push(
+      '--anonymous-inbound',
+      `${peerOnionHost}:${p2pPort},127.0.0.1:${p2pLocalBindPort},${store.torMaxInboundConns ?? 16}`,
+    )
+  }
+  if (store.padTransactions) {
+    anonymityArgs.push('--pad-transactions')
+  }
+
+  const inboundReady = torIp && store.torInbound && !!peerOnionHost
 
   /**
    * ======================== Subcontainers ========================
@@ -95,6 +156,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
           '--non-interactive',
           '--config-file',
           '/home/monero/.bitmonero/monero.conf',
+          ...anonymityArgs,
         ],
       },
       ready: {
@@ -149,7 +211,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
             if (!res.ok) {
               return {
                 message: `${i18n('Unexpected RPC response')}: ${res.status}`,
-                result: 'failure' as const,
+                result: 'failure',
               }
             }
 
@@ -157,7 +219,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
             if (info?.synchronized) {
               return {
                 message: i18n('Monero is fully synced'),
-                result: 'success' as const,
+                result: 'success',
               }
             }
 
@@ -169,22 +231,72 @@ export const main = sdk.setupMain(async ({ effects }) => {
                 message: i18n('Syncing blocks...${percentage}%', {
                   percentage,
                 }),
-                result: 'loading' as const,
+                result: 'loading',
               }
             }
 
             return {
               message: i18n('Syncing blocks...'),
-              result: 'loading' as const,
+              result: 'loading',
             }
           } catch {
             return {
               message: i18n('Monero is starting…'),
-              result: 'starting' as const,
+              result: 'starting',
             }
           }
         },
       },
       requires: ['monerod'],
+    })
+    .addHealthCheck('tor', {
+      ready: {
+        display: 'Tor',
+        fn: () => {
+          if (!anyTorUse) {
+            return {
+              result: 'disabled',
+              message: i18n('No Tor intents enabled'),
+            }
+          }
+          if (!torIp) {
+            return {
+              result: 'disabled',
+              message: i18n('Tor is not installed'),
+            }
+          }
+          if (!torRunning) {
+            return {
+              result: 'disabled',
+              message: i18n('Tor is not running'),
+            }
+          }
+          return {
+            result: 'success',
+            message: inboundReady
+              ? i18n('Inbound and outbound connections')
+              : i18n('Outbound only'),
+          }
+        },
+      },
+      requires: [],
+    })
+    .addHealthCheck('clearnet', {
+      ready: {
+        display: i18n('Clearnet'),
+        fn: () => {
+          if (store.outboundProxy !== 'none') {
+            return {
+              result: 'disabled',
+              message: i18n('Excluded by outbound proxy'),
+            }
+          }
+          return {
+            result: 'success',
+            message: i18n('Inbound and outbound connections'),
+          }
+        },
+      },
+      requires: [],
     })
 })
