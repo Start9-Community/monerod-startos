@@ -11,7 +11,7 @@ export const manifest = setupManifest({
   id: 'monerod',
   title: 'Monero',
   license: 'bsd-3-clause',
-  packageRepo: 'https://github.com/kn0wmad/monerod-startos',
+  packageRepo: 'https://github.com/Start9-Community/monerod-startos',
   upstreamRepo: 'https://github.com/monero-project/monero',
   marketingUrl: 'https://getmonero.org',
   docsUrls: ['https://docs.getmonero.org'],
