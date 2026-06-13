@@ -1,4 +1,3 @@
 ARCHES := x86 arm
-# overrides to s9pk.mk above "include"
+# overrides to s9pk.mk must precede the include statement
 include s9pk.mk
-# custom recipes below "include"
