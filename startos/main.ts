@@ -8,6 +8,8 @@ import { sdk } from './sdk'
 import {
   p2pLocalBindPort,
   p2pPort,
+  peerHostId,
+  peerInterfaceId,
   rpcRestrictedPort,
   torSocksPort,
   walletRpcPort,
@@ -125,18 +127,22 @@ export const main = sdk.setupMain(async ({ effects }) => {
   //     --anonymous-inbound
   //   hasPublicIpv4: whether a public IPv4 is published, gating clearnet
   //     inbound (without one, monerod can only make outbound clearnet conns)
-  const { onionHost: peerOnionHost, hasPublicIpv4 } =
-    await sdk.serviceInterface
-      .getOwn(effects, 'peer', (iface) => {
-        const pub = iface?.addressInfo?.public
-        return {
-          onionHost:
-            pub?.filter({ pluginId: 'tor' }).hostnames[0]?.hostname ?? '',
-          hasPublicIpv4:
-            (pub?.filter({ kind: 'ipv4' }).hostnames.length ?? 0) > 0,
-        }
-      })
-      .const()
+  const { onionHost: peerOnionHost, hasPublicIpv4 } = await sdk.host
+    .getOwn(effects, peerHostId, (host) => {
+      const iface =
+        host &&
+        Object.values(host.bindings)
+          .flatMap((b) => Object.values(b.interfaces))
+          .find((i) => i.id === peerInterfaceId)
+      const pub = iface?.addressInfo?.public
+      return {
+        onionHost:
+          pub?.filter({ pluginId: 'tor' }).hostnames[0]?.hostname ?? '',
+        hasPublicIpv4:
+          (pub?.filter({ kind: 'ipv4' }).hostnames.length ?? 0) > 0,
+      }
+    })
+    .const()
 
   // Track Tor running status for health check display (no restart)
   let torRunning = false
@@ -176,7 +182,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
   /**
    * ======================== Subcontainers ========================
    */
-  const monerodSub = await sdk.SubContainer.of(
+  const monerodSub = sdk.SubContainer.of(
     effects,
     { imageId: 'monerod' },
     sdk.Mounts.of().mountVolume({
@@ -188,7 +194,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
     'monerod',
   )
 
-  const walletRpcSub = await sdk.SubContainer.of(
+  const walletRpcSub = sdk.SubContainer.of(
     effects,
     { imageId: 'wallet-rpc' },
     sdk.Mounts.of().mountVolume({
@@ -223,7 +229,8 @@ export const main = sdk.setupMain(async ({ effects }) => {
   }
 
   if (resync) {
-    await rm(`${monerodSub.rootfs}/home/monero/.bitmonero/lmdb`, {
+    const rootfs = await monerodSub.rootfs
+    await rm(`${rootfs}/home/monero/.bitmonero/lmdb`, {
       force: true,
       recursive: true,
     })
