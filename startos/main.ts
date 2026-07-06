@@ -442,9 +442,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
             result: 'success',
             message: hasPublicIpv4
               ? i18n('Inbound and outbound connections')
-              : i18n(
-                  'Outbound only. Publish an IP address to enable inbound.',
-                ),
+              : i18n('Outbound only. Publish an IP address to enable inbound.'),
           }
         },
       },
