@@ -4,14 +4,15 @@ import { moneroConfFile } from './fileModels/monero.conf'
 import { walletRpcConfFile } from './fileModels/monero-wallet-rpc.conf'
 import { storeJson } from './fileModels/store.json'
 import { i18n } from './i18n'
+import { socksHostId, socksPort } from 'tor-startos/startos/utils'
 import { sdk } from './sdk'
 import {
+  bridgeAddress,
   p2pLocalBindPort,
   p2pPort,
   peerHostId,
   peerInterfaceId,
   rpcRestrictedPort,
-  torSocksPort,
   walletRpcPort,
 } from './utils'
 
@@ -119,8 +120,18 @@ export const main = sdk.setupMain(async ({ effects }) => {
   const anyTorUse =
     store.outboundProxy === 'tor' || store.torOutbound || store.torInbound
 
-  // Tor container IP — restarts monerod if it changes
-  const torIp = await sdk.getContainerIp(effects, { packageId: 'tor' }).const()
+  // Tor SOCKS over the LXC bridge. With the 9050 fallback the mapped address
+  // stays constant (10.0.3.1:9050) across tor install/update/uninstall, so
+  // this .const() never restarts monerod on tor churn. A dead bridge address
+  // is just connection-refused, so the proxy flags are always safe to pass;
+  // when tor lands the address is already live and monerod dials it with no
+  // restart.
+  const torSocks = await bridgeAddress(effects, {
+    packageId: 'tor',
+    hostId: socksHostId,
+    internalPort: socksPort,
+    fallbackPort: socksPort,
+  }).const()
 
   // Peer interface reachability — restarts monerod if either value changes.
   //   onionHost: own onion hostname (from the Tor plugin), needed for
@@ -144,28 +155,30 @@ export const main = sdk.setupMain(async ({ effects }) => {
     })
     .const()
 
-  // Track Tor running status for health check display (no restart)
+  // Track Tor install/run state for the health check display (no restart)
+  let torInstalled = false
   let torRunning = false
-  if (torIp) {
-    sdk.getStatus(effects, { packageId: 'tor' }).onChange((status) => {
-      torRunning = status?.desired.main === 'running'
-      return { cancel: false }
-    })
-  }
+  sdk.getStatus(effects, { packageId: 'tor' }).onChange((status) => {
+    torInstalled = status !== null
+    torRunning = status?.desired.main === 'running'
+    return { cancel: false }
+  })
 
   // monerod requires --tx-proxy for the tor zone whenever --anonymous-inbound
   // is configured for tor (otherwise the daemon errors at startup), so any
-  // active inbound implies tx-proxy must be set too.
-  const inboundReady = !!(torIp && store.torInbound && peerOnionHost)
-  const txProxyActive = !!(torIp && (store.torOutbound || inboundReady))
+  // active inbound implies tx-proxy must be set too. A .onion on the Peer
+  // interface only exists once Tor is installed, so peerOnionHost is the
+  // implicit "Tor present" gate for inbound.
+  const inboundReady = !!(store.torInbound && peerOnionHost)
+  const txProxyActive = store.torOutbound || inboundReady
 
   const anonymityArgs: string[] = []
-  if (torIp && store.outboundProxy === 'tor') {
-    anonymityArgs.push('--proxy', `${torIp}:${torSocksPort}`)
+  if (store.outboundProxy === 'tor') {
+    anonymityArgs.push('--proxy', torSocks)
   }
   if (txProxyActive) {
     const txProxy =
-      `tor,${torIp}:${torSocksPort},${store.torMaxOutboundConns ?? 16}` +
+      `tor,${torSocks},${store.torMaxOutboundConns ?? 16}` +
       (store.torDandelionNoise === false ? ',disable_noise' : '')
     anonymityArgs.push('--tx-proxy', txProxy)
   }
@@ -385,7 +398,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
               message: i18n('No Tor intents enabled'),
             }
           }
-          if (!torIp) {
+          if (!torInstalled) {
             return {
               result: 'disabled',
               message: i18n('Tor is not installed'),
