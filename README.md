@@ -87,7 +87,7 @@ Values the package pins via the file model's zod shape. They are not exposed in 
 | `check-updates`              | `disabled`                                   | StartOS manages updates        |
 | `igd`                        | `disabled`                                   | No UPnP port mapping           |
 | `ban-list`                   | `/home/monero/.bitmonero/ban_list.txt`       | Managed via Ban List action    |
-| `tx-proxy` / `proxy` / `anonymous-inbound` / `pad-transactions` | _forced undefined_ | Resolved at daemon launch as CLI args from `store.json` + live Tor container IP (see Anonymity Networks) |
+| `tx-proxy` / `proxy` / `anonymous-inbound` / `pad-transactions` | _forced undefined_ | Resolved at daemon launch as CLI args from `store.json` + the Tor SOCKS bridge address (see Anonymity Networks) |
 
 | Key (monero-wallet-rpc.conf) | Value                    | Reason                         |
 | ---------------------------- | ------------------------ | ------------------------------ |
@@ -161,12 +161,12 @@ Peer, rate-limit, and P2P privacy settings. Form field names mirror the monerod 
 
 ### Anonymity Networks
 
-Tor-related intents. Stored in `store.json`; `main.ts` resolves the Tor container IP and the Peer interface's own onion URL at runtime and builds the matching monerod CLI args. The corresponding raw INI keys (`tx-proxy`, `proxy`, `anonymous-inbound`, `pad-transactions`) are enforced undefined in `monero.conf`, so hand-edits to those keys get stripped.
+Tor-related intents. Stored in `store.json`; `main.ts` resolves the Tor SOCKS proxy over the LXC bridge (`bridgeAddress` in `utils.ts` → `10.0.3.1:9050`, held constant via a 9050 fallback so Tor install/uninstall never restarts monerod) and the Peer interface's own onion URL at runtime, then builds the matching monerod CLI args. The corresponding raw INI keys (`tx-proxy`, `proxy`, `anonymous-inbound`, `pad-transactions`) are enforced undefined in `monero.conf`, so hand-edits to those keys get stripped.
 
 | Input                                     | Maps to CLI arg                              | Default |
 | ----------------------------------------- | -------------------------------------------- | ------- |
-| Route all outbound traffic via            | `--proxy <torIp>:9050`                       | none    |
-| Send local transactions through Tor proxy | `--tx-proxy tor,<torIp>:9050,N`              | off     |
+| Route all outbound traffic via            | `--proxy <tor-bridge>:9050`                  | none    |
+| Send local transactions through Tor proxy | `--tx-proxy tor,<tor-bridge>:9050,N`         | off     |
 | Accept inbound connections over Tor       | `--anonymous-inbound <onion>:<p2p>,...,N`    | off     |
 | Max Tor outbound conns                    | third field of `--tx-proxy`                  | 16      |
 | Max Tor inbound conns                     | third field of `--anonymous-inbound`         | 16      |

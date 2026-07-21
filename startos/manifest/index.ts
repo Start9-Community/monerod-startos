@@ -1,11 +1,5 @@
 import { setupManifest } from '@start9labs/start-sdk'
-import {
-  short,
-  long,
-  alertUninstall,
-  alertRestore,
-  torDescription,
-} from './i18n'
+import { short, long, torDescription } from './i18n'
 
 export const manifest = setupManifest({
   id: 'monerod',
@@ -20,25 +14,17 @@ export const manifest = setupManifest({
   images: {
     monerod: {
       source: {
-        dockerTag: 'ghcr.io/sethforprivacy/simple-monerod:v0.18.4.6',
+        dockerTag: 'ghcr.io/sethforprivacy/simple-monerod:v0.18.5.1',
       },
       arch: ['x86_64', 'aarch64'],
     },
     'wallet-rpc': {
       source: {
         dockerTag:
-          'ghcr.io/sethforprivacy/simple-monero-wallet-rpc:v0.18.4.6',
+          'ghcr.io/sethforprivacy/simple-monero-wallet-rpc:v0.18.5.1',
       },
       arch: ['x86_64', 'aarch64'],
     },
-  },
-  alerts: {
-    install: null,
-    update: null,
-    uninstall: alertUninstall,
-    restore: alertRestore,
-    start: null,
-    stop: null,
   },
   dependencies: {
     tor: {
