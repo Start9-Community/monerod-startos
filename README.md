@@ -42,7 +42,7 @@
 | Architectures    | x86_64, aarch64                                                |
 | Entrypoint       | Bypassed — StartOS calls the binaries directly via config file |
 
-Both images are pulled directly from upstream with no modifications. The upstream entrypoint scripts (which use `fixuid`) are not used; instead, a `chown` oneshot runs before each daemon to set volume ownership.
+Both images are pulled directly from upstream with no modifications. The upstream entrypoint scripts (which use `fixuid`) are not used; instead, a `chown` oneshot runs before each daemon to set volume ownership. A `nocow` oneshot additionally marks the monerod data directory `chattr +C` (nodatacow) at every start — btrfs copy-on-write otherwise fragments the LMDB database into millions of extents, degrading performance and stalling the StartOS pre-update volume snapshot. The flag only takes effect on directories and files created after it is set; an existing `data.mdb` keeps its layout until a resync recreates it.
 
 Both daemons run as the `monero` user (not root).
 
