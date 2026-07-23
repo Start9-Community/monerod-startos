@@ -254,6 +254,24 @@ export const main = sdk.setupMain(async ({ effects }) => {
    * ======================== Daemons ========================
    */
   return sdk.Daemons.of(effects)
+    .addOneshot('nocow', {
+      // Btrfs CoW fragments the LMDB database into millions of extents,
+      // degrading performance and stalling StartOS's pre-update volume
+      // snapshot for minutes. chattr +C marks dirs and empty files nodatacow
+      // (new files inherit it from their dir); it is a silent no-op on files
+      // that already contain data, so an existing data.mdb only picks it up
+      // after a resync. Same pattern as bitcoind's nocow oneshot.
+      subcontainer: monerodSub,
+      exec: {
+        command: [
+          'sh',
+          '-c',
+          'find /home/monero/.bitmonero \\( -type d -o -type f \\) -exec chattr +C {} +',
+        ],
+        user: 'root',
+      },
+      requires: [],
+    })
     .addOneshot('seed-ban-list', {
       // The simple-monerod image bundles a community-maintained ban list at
       // /home/monero/ban_list.txt. Seed it into the volume on first start (or
@@ -307,7 +325,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
             errorMessage: i18n('Monero RPC is unreachable'),
           }),
       },
-      requires: ['chown-monerod'],
+      requires: ['chown-monerod', 'nocow'],
     })
     .addDaemon('wallet-rpc', {
       subcontainer: walletRpcSub,
