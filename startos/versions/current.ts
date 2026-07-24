@@ -1,7 +1,7 @@
 import { IMPOSSIBLE, VersionInfo } from '@start9labs/start-sdk'
 
 export const current = VersionInfo.of({
-  version: '0.18.5.1:1',
+  version: '0.18.5.1:2',
   releaseNotes: {
     en_US:
       'Marks the Monero data directory nodatacow (chattr +C) on every startup, as Bitcoin Core does. On btrfs, copy-on-write severely fragments the LMDB database over time, which degrades daemon performance and can stall service updates for many minutes while StartOS snapshots the volume beforehand. New and resynced installations are protected from the start. An already-synced database cannot be converted in place — if updates have become very slow, run the Resync Blockchain action (re-downloads the entire blockchain) to rebuild the database with the flag applied.',
