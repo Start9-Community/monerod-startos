@@ -240,9 +240,9 @@ Only regeneratable state is excluded from the `monerod` volume: the blockchain d
 
 ## Dependencies
 
-| Dependency | Required | Version Constraint | Purpose                                |
-| ---------- | -------- | ------------------ | -------------------------------------- |
-| Tor        | Optional | >= 0.4.9.5         | SOCKS proxy for Tor outbound / inbound |
+| Dependency | Required | Purpose                                |
+| ---------- | -------- | -------------------------------------- |
+| Tor        | Optional | SOCKS proxy for Tor outbound / inbound |
 
 Tor becomes a **runtime-required** dependency when any Tor intent is enabled in the Anonymity Networks action (outbound proxy, send local transactions through Tor proxy, or accept inbound over Tor). When all intents are off, Tor is not required. No volumes are mounted from Tor; monerod connects to the Tor SOCKS proxy at `<tor-container-ip>:9050`, resolved at daemon launch.
 
