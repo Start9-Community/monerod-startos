@@ -7,7 +7,6 @@ import { i18n } from './i18n'
 import { socksHostId, socksPort } from 'tor-startos/startos/utils'
 import { sdk } from './sdk'
 import {
-  bridgeAddress,
   p2pLocalBindPort,
   p2pPort,
   peerHostId,
@@ -126,12 +125,14 @@ export const main = sdk.setupMain(async ({ effects }) => {
   // is just connection-refused, so the proxy flags are always safe to pass;
   // when tor lands the address is already live and monerod dials it with no
   // restart.
-  const torSocks = await bridgeAddress(effects, {
-    packageId: 'tor',
-    hostId: socksHostId,
-    internalPort: socksPort,
-    fallbackPort: socksPort,
-  }).const()
+  const torSocks = await sdk.host
+    .getBridgeAddress(effects, {
+      packageId: 'tor',
+      hostId: socksHostId,
+      internalPort: socksPort,
+      fallbackPort: socksPort,
+    })
+    .const()
 
   // Peer interface reachability — restarts monerod if either value changes.
   //   onionHost: own onion hostname (from the Tor plugin), needed for
