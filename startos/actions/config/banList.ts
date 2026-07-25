@@ -35,7 +35,9 @@ export const banListConfig = sdk.Action.withInput(
 
   async () => ({
     name: i18n('Edit Ban List'),
-    description: i18n('View, add, or remove peers that monerod bans at startup.'),
+    description: i18n(
+      'View, add, or remove peers that monerod bans at startup.',
+    ),
     warning: null,
     allowedStatuses: 'any',
     group: i18n('Configuration'),

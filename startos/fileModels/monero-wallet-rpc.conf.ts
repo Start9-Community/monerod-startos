@@ -61,9 +61,7 @@ const { InputSpec, Value, Variants } = sdk
 const alphanumUnderscore = [
   {
     regex: '^[a-zA-Z0-9_]+$',
-    description: i18n(
-      'Must be alphanumeric and/or can contain an underscore',
-    ),
+    description: i18n('Must be alphanumeric and/or can contain an underscore'),
   },
 ]
 
@@ -117,11 +115,15 @@ export const walletRpcConfigSpec = InputSpec.of({
 export async function readWalletRpcForForm(effects: any) {
   const conf = await walletRpcConfFile.read().const(effects)
   if (!conf?.['rpc-login']) {
-    return { 'wallet-rpc-credentials': { selection: 'disabled' as const, value: {} } }
+    return {
+      'wallet-rpc-credentials': { selection: 'disabled' as const, value: {} },
+    }
   }
   const colonIdx = conf['rpc-login'].indexOf(':')
   if (colonIdx <= 0) {
-    return { 'wallet-rpc-credentials': { selection: 'disabled' as const, value: {} } }
+    return {
+      'wallet-rpc-credentials': { selection: 'disabled' as const, value: {} },
+    }
   }
   return {
     'wallet-rpc-credentials': {

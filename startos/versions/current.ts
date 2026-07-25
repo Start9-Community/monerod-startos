@@ -1,18 +1,23 @@
 import { IMPOSSIBLE, VersionInfo } from '@start9labs/start-sdk'
 
 export const current = VersionInfo.of({
-  version: '0.18.5.1:2',
+  version: '0.18.5.1:3',
   releaseNotes: {
-    en_US:
-      'Marks the Monero data directory nodatacow (chattr +C) on every startup, as Bitcoin Core does. On btrfs, copy-on-write severely fragments the LMDB database over time, which degrades daemon performance and can stall service updates for many minutes while StartOS snapshots the volume beforehand. New and resynced installations are protected from the start. An already-synced database cannot be converted in place — if updates have become very slow, run the Resync Blockchain action (re-downloads the entire blockchain) to rebuild the database with the flag applied.',
-    es_ES:
-      'Marca el directorio de datos de Monero como nodatacow (chattr +C) en cada arranque, igual que Bitcoin Core. En btrfs, el copy-on-write fragmenta gravemente la base de datos LMDB con el tiempo, lo que degrada el rendimiento del demonio y puede detener las actualizaciones del servicio durante muchos minutos mientras StartOS toma antes la instantánea del volumen. Las instalaciones nuevas y resincronizadas quedan protegidas desde el principio. Una base de datos ya sincronizada no puede convertirse en el sitio: si las actualizaciones se han vuelto muy lentas, ejecute la acción Resync Blockchain (vuelve a descargar toda la cadena de bloques) para reconstruir la base de datos con la marca aplicada.',
-    de_DE:
-      'Markiert das Monero-Datenverzeichnis bei jedem Start als nodatacow (chattr +C), wie es Bitcoin Core tut. Unter btrfs fragmentiert Copy-on-Write die LMDB-Datenbank mit der Zeit stark, was die Leistung des Daemons mindert und Dienst-Updates viele Minuten lang aufhalten kann, während StartOS zuvor den Volume-Snapshot erstellt. Neue und neu synchronisierte Installationen sind von Anfang an geschützt. Eine bereits synchronisierte Datenbank kann nicht direkt umgewandelt werden — wenn Updates sehr langsam geworden sind, führen Sie die Aktion Resync Blockchain aus (lädt die gesamte Blockchain erneut herunter), um die Datenbank mit gesetztem Flag neu aufzubauen.',
-    pl_PL:
-      'Oznacza katalog danych Monero jako nodatacow (chattr +C) przy każdym uruchomieniu, tak jak robi to Bitcoin Core. Na btrfs mechanizm copy-on-write z czasem silnie fragmentuje bazę danych LMDB, co obniża wydajność demona i może wstrzymywać aktualizacje usługi na wiele minut, gdy StartOS wykonuje wcześniej migawkę wolumenu. Nowe i ponownie zsynchronizowane instalacje są chronione od początku. Już zsynchronizowanej bazy danych nie można przekonwertować w miejscu — jeśli aktualizacje stały się bardzo wolne, uruchom akcję Resync Blockchain (ponownie pobiera cały łańcuch bloków), aby odbudować bazę danych z ustawioną flagą.',
-    fr_FR:
-      'Marque le répertoire de données de Monero en nodatacow (chattr +C) à chaque démarrage, comme le fait Bitcoin Core. Sur btrfs, le copy-on-write fragmente fortement la base de données LMDB au fil du temps, ce qui dégrade les performances du démon et peut bloquer les mises à jour du service pendant de longues minutes pendant que StartOS réalise au préalable l’instantané du volume. Les installations neuves ou resynchronisées sont protégées dès le départ. Une base de données déjà synchronisée ne peut pas être convertie sur place — si les mises à jour sont devenues très lentes, lancez l’action Resync Blockchain (retélécharge l’intégralité de la blockchain) pour reconstruire la base de données avec l’attribut appliqué.',
+    en_US: `Resolves the addresses of connected services more reliably.
+
+Monero Daemon looked up where to reach its dependencies through a field that only applies to one of the two ways a service can publish a port. It now reads the address itself, so a dependency that changes how it serves TLS stays reachable. Nothing changes in normal operation.`,
+    es_ES: `Resuelve de forma más fiable las direcciones de los servicios conectados.
+
+Monero Daemon localizaba sus dependencias mediante un campo que solo se aplica a una de las dos formas en que un servicio puede publicar un puerto. Ahora lee la dirección en sí, de modo que si una dependencia cambia su forma de servir TLS, Monero Daemon seguirá encontrándola. En funcionamiento normal no cambia nada.`,
+    de_DE: `Ermittelt die Adressen verbundener Dienste zuverlässiger.
+
+Monero Daemon suchte seine Abhängigkeiten über ein Feld, das nur für eine der beiden Arten gilt, auf die ein Dienst einen Port veröffentlichen kann. Jetzt wird die Adresse selbst gelesen, sodass eine Abhängigkeit, die ihre TLS-Bereitstellung ändert, für Monero Daemon auffindbar bleibt. Im normalen Betrieb ändert sich nichts.`,
+    pl_PL: `Pewniej ustala adresy połączonych usług.
+
+Monero Daemon wyszukiwał swoje zależności przez pole, które dotyczy tylko jednego z dwóch sposobów publikowania portu przez usługę. Teraz odczytuje sam adres, więc zależność zmieniająca sposób udostępniania TLS nadal pozostanie odnajdywalna dla Monero Daemon. W normalnej pracy nic się nie zmienia.`,
+    fr_FR: `Détermine plus fiablement les adresses des services connectés.
+
+Monero Daemon localisait ses dépendances via un champ qui ne s'applique qu'à l'un des deux modes de publication d'un port par un service. Il lit désormais l'adresse elle-même : une dépendance qui change sa façon de servir TLS reste donc trouvable par Monero Daemon. Rien ne change en fonctionnement normal.`,
   },
   migrations: {
     up: async () => {},
