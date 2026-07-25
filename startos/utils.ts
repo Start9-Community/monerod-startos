@@ -1,5 +1,3 @@
-import { sdk } from './sdk'
-
 export const rpcRestrictedPort = 18089
 export const rpcPort = 18081
 export const p2pPort = 18080

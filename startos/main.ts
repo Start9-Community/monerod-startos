@@ -119,7 +119,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
   const anyTorUse =
     store.outboundProxy === 'tor' || store.torOutbound || store.torInbound
 
-  // Tor SOCKS over the LXC bridge. With the 9050 fallback the mapped address
+  // Tor SOCKS over the LXC bridge. With the 9050 fallback the resolved address
   // stays constant (10.0.3.1:9050) across tor install/update/uninstall, so
   // this .const() never restarts monerod on tor churn. A dead bridge address
   // is just connection-refused, so the proxy flags are always safe to pass;
