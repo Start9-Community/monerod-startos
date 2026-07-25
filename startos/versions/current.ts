@@ -5,7 +5,7 @@ export const current = VersionInfo.of({
   releaseNotes: {
     en_US: `Resolves the addresses of connected services more reliably.
 
-Monero Daemon looked up where to reach its dependencies through a field that only applies to one of the two ways a service can publish a port. It now reads the address itself, so a dependency changing how it serves TLS can no longer leave Monero Daemon unable to find it. Nothing changes in normal operation.`,
+Monero Daemon looked up where to reach its dependencies through a field that only applies to one of the two ways a service can publish a port. It now reads the address itself, so a dependency that changes how it serves TLS stays reachable. Nothing changes in normal operation.`,
     es_ES: `Resuelve de forma más fiable las direcciones de los servicios conectados.
 
 Monero Daemon localizaba sus dependencias mediante un campo que solo se aplica a una de las dos formas en que un servicio puede publicar un puerto. Ahora lee la dirección en sí, de modo que si una dependencia cambia su forma de servir TLS, Monero Daemon seguirá encontrándola. En funcionamiento normal no cambia nada.`,

@@ -161,7 +161,7 @@ Peer, rate-limit, and P2P privacy settings. Form field names mirror the monerod 
 
 ### Anonymity Networks
 
-Tor-related intents. Stored in `store.json`; `main.ts` resolves the Tor SOCKS proxy over the LXC bridge (`bridgeAddress` in `utils.ts` → `10.0.3.1:9050`, held constant via a 9050 fallback so Tor install/uninstall never restarts monerod) and the Peer interface's own onion URL at runtime, then builds the matching monerod CLI args. The corresponding raw INI keys (`tx-proxy`, `proxy`, `anonymous-inbound`, `pad-transactions`) are enforced undefined in `monero.conf`, so hand-edits to those keys get stripped.
+Tor-related intents. Stored in `store.json`; `main.ts` resolves the Tor SOCKS proxy over the LXC bridge (`sdk.host.getBridgeAddress` → `10.0.3.1:9050`, held constant via a 9050 fallback so Tor install/uninstall never restarts monerod) and the Peer interface's own onion URL at runtime, then builds the matching monerod CLI args. The corresponding raw INI keys (`tx-proxy`, `proxy`, `anonymous-inbound`, `pad-transactions`) are enforced undefined in `monero.conf`, so hand-edits to those keys get stripped.
 
 | Input                                     | Maps to CLI arg                              | Default |
 | ----------------------------------------- | -------------------------------------------- | ------- |
