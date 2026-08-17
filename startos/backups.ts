@@ -1,9 +1,9 @@
 import { sdk } from './sdk'
 
 export const { createBackup, restoreInit } = sdk.setupBackups(async () =>
-  sdk.Backups.ofVolumes('monerod', 'wallet').setOptions({
+  // Only paths that re-download or regenerate on the next start may be excluded.
+  sdk.Backups.ofVolumes('main', 'monerod', 'wallet').setOptions({
     exclude: [
-      // monerod
       'lmdb/',
       'logs/',
       'p2pstate.bin',
