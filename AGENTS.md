@@ -6,13 +6,11 @@ Develop it inside a StartOS packaging workspace created by `start-cli s9pk init-
 which provides the packaging guide and agent context one level up. If you're reading this in a
 bare clone with no workspace, the full guide is at <https://docs.start9.com/packaging>.
 
-Work this package's `TODO.md` from top to bottom. Keep `README.md` (architecture, for developers and LLMs) and `instructions.md` (end-user docs) in sync with your changes.
+Work this package's `TODO.md` from top to bottom. Keep `README.md` (technical reference for an AI support or administering agent) and `instructions.md` (end-user docs) in sync with your changes.
 
 ## This repo
 
-- **Package id is `monerod`.** Two subcontainers: `monerod` (the `monerod` daemon) and `wallet-rpc` (`monero-wallet-rpc`).
-- **`startos/utils.ts` exports host-id/interface-id constants** (`peerHostId`, `rpcRestrictedHostId`, `walletRpcHostId`, `zmqHostId`, `zmqPubsubHostId` and the matching `*InterfaceId`) for `sdk.host.getOwn`/`get` lookups. btcpayserver depends on this package — it imports the `manifest` export and the `autoconfig` action (`startos/actions/config/autoconfig.ts`). Treat those exports as a small API: keep the manifest `id`/volumes, the id constants, and the `autoconfig` action stable, and update the dependent in the same change if you must rename one.
-
-## Inspecting a running install
-
-To run a command inside the service's container (read its generated config, grep app logs), use `start-cli package attach monerod -n <name> -- <cmd>`. Select the subcontainer by **name** with `-n` (the name passed to `SubContainer.of` in `main.ts` — here `monerod` or `wallet-rpc`) or by image with `-i`. Note: `-s/--subcontainer` matches the internal **Guid**, not the name, so passing a name to `-s` fails with "no matching subcontainers".
+- **`startos/utils.ts`'s host-id and interface-id constants, the manifest `id`/volumes, and the `autoconfig` action are a public API.** btcpayserver imports them. Renaming one is a cross-repo change — update the dependent in the same PR.
+- **Tor flags are CLI args, never conf keys.** `proxy`, `tx-proxy`, `anonymous-inbound` and `pad-transactions` are `z.undefined().catch(undefined)` in `monero.conf.ts` so a hand-edit is stripped on read; `main.ts` composes them from `store.json` plus values only available at start (Tor's live address, whether the Peer interface has an onion yet).
+- **The `nocow` oneshot must run before monerod.** Btrfs CoW fragments LMDB into millions of extents and stalls the pre-update volume snapshot; `chattr +C` only takes on directories and empty files, so an existing `data.mdb` picks it up on the next resync.
+- **`main` is not mounted into either subcontainer** — it exists only for `store.json`, which this package's own code reads and writes.

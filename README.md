@@ -1,16 +1,18 @@
 <p align="center">
-  <img src="icon.svg" alt="Monero Logo" width="21%">
+  <img src="icon.png" alt="Monero Logo" width="21%">
 </p>
 
 # Monero on StartOS
 
-> **Upstream docs:** <https://docs.getmonero.org>
->
 > Everything not listed in this document should behave the same as upstream
 > Monero. If a feature, setting, or behavior is not mentioned here, the
-> upstream documentation is accurate and fully applicable.
+> upstream documentation is accurate and fully applicable — see the
+> Documentation section of `instructions.md` for links.
 
-[Monero](https://github.com/monero-project/monero) is a private, decentralized cryptocurrency. This package runs two daemons — `monerod` (the full node) and `monero-wallet-rpc` (server-side wallet management) — and exposes configuration through StartOS actions.
+[Monero](https://github.com/monero-project/monero) is a private, untraceable digital currency; `monerod` is its full node. This package runs the node and a wallet RPC server beside it, manages both configuration files itself, and turns monerod's Tor plumbing into a set of intents rather than a set of command-line flags.
+
+- **Upstream repo:** <https://github.com/monero-project/monero>
+- **Wrapper repo:** <https://github.com/Start9-Community/monerod-startos>
 
 ---
 
@@ -18,271 +20,236 @@
 
 - [Image and Container Runtime](#image-and-container-runtime)
 - [Volume and Data Layout](#volume-and-data-layout)
-- [Configuration Model](#configuration-model)
-- [Installation and First-Run Flow](#installation-and-first-run-flow)
-- [Network Access and Interfaces](#network-access-and-interfaces)
-- [Actions (StartOS UI)](#actions-startos-ui)
-- [Backups and Restore](#backups-and-restore)
-- [Health Checks](#health-checks)
+- [File Models](#file-models)
 - [Dependencies](#dependencies)
+- [Network Access and Interfaces](#network-access-and-interfaces)
+- [Installation and First-Run Flow](#installation-and-first-run-flow)
+- [Actions](#actions)
+- [Tasks](#tasks)
+- [Health Checks](#health-checks)
+- [Backups and Restore](#backups-and-restore)
 - [Limitations and Differences](#limitations-and-differences)
-- [What Is Unchanged from Upstream](#what-is-unchanged-from-upstream)
-- [Wallet Integrations](#wallet-integrations)
-- [Contributing](#contributing)
 - [Quick Reference for AI Consumers](#quick-reference-for-ai-consumers)
 
 ---
 
 ## Image and Container Runtime
 
-| Property         | Value                                                          |
-| ---------------- | -------------------------------------------------------------- |
-| monerod image    | `ghcr.io/sethforprivacy/simple-monerod` (unmodified)           |
-| wallet-rpc image | `ghcr.io/sethforprivacy/simple-monero-wallet-rpc` (unmodified) |
-| Architectures    | x86_64, aarch64                                                |
-| Entrypoint       | Bypassed — StartOS calls the binaries directly via config file |
+Two images from the same third-party build, one per daemon.
 
-Both images are pulled directly from upstream with no modifications. The upstream entrypoint scripts (which use `fixuid`) are not used; instead, a `chown` oneshot runs before each daemon to set volume ownership. A `nocow` oneshot additionally marks the monerod data directory `chattr +C` (nodatacow) at every start — btrfs copy-on-write otherwise fragments the LMDB database into millions of extents, degrading performance and stalling the StartOS pre-update volume snapshot. The flag only takes effect on directories and files created after it is set; an existing `data.mdb` keeps its layout until a resync recreates it.
+| Property      | Value                                                            |
+| ------------- | ---------------------------------------------------------------- |
+| Images        | `ghcr.io/sethforprivacy/simple-monerod` and its wallet-RPC twin  |
+| Architectures | x86_64, aarch64                                                  |
+| Command       | `monerod` and `monero-wallet-rpc`, each against a managed config |
 
-Both daemons run as the `monero` user (not root).
+| Subcontainer | Purpose                                          |
+| ------------ | ------------------------------------------------ |
+| `monerod`    | The node — the one to `attach` to                |
+| `wallet-rpc` | The wallet RPC server, pointed at the local node |
+
+**These are not the Monero project's own images.** They are a widely used third-party build tracking upstream releases, and both move together.
+
+Four oneshots run before the daemons:
+
+| Oneshot         | Purpose                                                              |
+| --------------- | -------------------------------------------------------------------- |
+| `nocow`         | Marks the data directory `nodatacow` on Btrfs                        |
+| `seed-ban-list` | Copies the image's bundled ban list into the volume when it is empty |
+| `chown-monerod` | Gives the data directory to the node's user                          |
+| `chown-wallet`  | The same for the wallet volume                                       |
+
+**The `nocow` oneshot is not cosmetic.** Copy-on-write fragments LMDB into millions of extents, which degrades the node and can stall StartOS's pre-update volume snapshot for minutes. `chattr +C` marks directories and empty files, and new files inherit it — so an existing database only picks it up after a resync.
 
 ## Volume and Data Layout
 
-| Volume    | Mount Point                | Purpose                                                |
-| --------- | -------------------------- | ------------------------------------------------------ |
-| `monerod` | `/home/monero/.bitmonero`  | Blockchain (lmdb), monero.conf, ban_list.txt, logs     |
-| `wallet`  | `/home/monero/wallet`      | Wallet files, monero-wallet-rpc.conf, logs             |
-| `main`    | _(not mounted at runtime)_ | Hosts `store.json`; vestigial for pre-0.18.4.6 volumes |
+Three volumes, treated very differently.
 
-All persistent configuration lives in files managed by StartOS file models:
+| Volume    | Mount Point               | Purpose                                  |
+| --------- | ------------------------- | ---------------------------------------- |
+| `main`    | — not mounted             | The package's own store                  |
+| `monerod` | `/home/monero/.bitmonero` | The blockchain, the config, the ban list |
+| `wallet`  | `/home/monero/wallet`     | Wallet files and the wallet RPC config   |
 
-- `monero.conf` (INI) — on the `monerod` volume
-- `monero-wallet-rpc.conf` (INI) — on the `wallet` volume
-- `ban_list.txt` (plain text) — on the `monerod` volume
-- `store.json` — on the `main` volume; holds StartOS-managed intent flags (`dbSalvage`, `resync`, and the Anonymity Networks fields)
+| Path                     | Written by | Holds                               |
+| ------------------------ | ---------- | ----------------------------------- |
+| `lmdb/`                  | monerod    | The blockchain database             |
+| `monero.conf`            | Actions    | The node configuration              |
+| `ban_list.txt`           | An action  | Peers banned at start               |
+| `monero-wallet-rpc.conf` | Actions    | The wallet RPC configuration        |
+| `store.json` (on `main`) | Actions    | The anonymity intents and two flags |
 
-## Configuration Model
+**`main` is never mounted into a container.** It holds only the package's own store, which is read and written by this package's code rather than by either daemon — which is also why it is the one volume neither daemon can corrupt.
 
-Settings in the StartOS UI fall into three tiers:
+## File Models
 
-### 1. Enforced (hidden)
+Four models, and the interesting part is what they refuse to hold.
 
-Values the package pins via the file model's zod shape. They are not exposed in any action and cannot be changed through the UI.
+| File                     | Format | Modelled                | Written by |
+| ------------------------ | ------ | ----------------------- | ---------- |
+| `monero.conf`            | INI    | Yes — `FileHelper.ini`  | Actions    |
+| `monero-wallet-rpc.conf` | INI    | Yes — `FileHelper.ini`  | Actions    |
+| `store.json`             | JSON   | Yes — `FileHelper.json` | Actions    |
+| `ban_list.txt`           | text   | Yes — `FileHelper.raw`  | An action  |
 
-| Key (monero.conf)                                               | Value                                      | Reason                                                                                                          |
-| --------------------------------------------------------------- | ------------------------------------------ | --------------------------------------------------------------------------------------------------------------- |
-| `data-dir`                                                      | `/home/monero/.bitmonero`                  | Matches volume mount                                                                                            |
-| `log-file`                                                      | `/home/monero/.bitmonero/logs/monerod.log` | Fixed log location                                                                                              |
-| `log-level`                                                     | `0,blockchain:INFO`                        | Quiet base with blockchain info                                                                                 |
-| `max-log-file-size`                                             | `10000000`                                 | Bounded rotation                                                                                                |
-| `max-log-files`                                                 | `2`                                        | Bounded rotation                                                                                                |
-| `p2p-bind-ip` / `port`                                          | `0.0.0.0` / `18080`                        | Container networking                                                                                            |
-| `rpc-bind-ip` / `port`                                          | `0.0.0.0` / `18081`                        | Container networking                                                                                            |
-| `rpc-restricted-bind-*`                                         | `0.0.0.0` / `18089`                        | Container networking                                                                                            |
-| `confirm-external-bind`                                         | `1`                                        | Required for `0.0.0.0` binding                                                                                  |
-| `rpc-access-control-origins`                                    | `*`                                        | Services connect internally                                                                                     |
-| `db-sync-mode`                                                  | `safe:sync`                                | Data integrity                                                                                                  |
-| `enforce-dns-checkpointing`                                     | `0`                                        | DNS blocked in Tor-only                                                                                         |
-| `disable-dns-checkpoints`                                       | `1`                                        | DNS blocked in Tor-only                                                                                         |
-| `check-updates`                                                 | `disabled`                                 | StartOS manages updates                                                                                         |
-| `igd`                                                           | `disabled`                                 | No UPnP port mapping                                                                                            |
-| `ban-list`                                                      | `/home/monero/.bitmonero/ban_list.txt`     | Managed via Ban List action                                                                                     |
-| `tx-proxy` / `proxy` / `anonymous-inbound` / `pad-transactions` | _forced undefined_                         | Resolved at daemon launch as CLI args from `store.json` + the Tor SOCKS bridge address (see Anonymity Networks) |
+Each config file splits three ways:
 
-| Key (monero-wallet-rpc.conf) | Value                    | Reason                         |
-| ---------------------------- | ------------------------ | ------------------------------ |
-| `wallet-dir`                 | `/home/monero/wallet`    | Matches volume mount           |
-| `log-file` / rotation        | fixed paths / `10MB` × 2 | Fixed log location             |
-| `trusted-daemon`             | `1`                      | Daemon is in the same package  |
-| `daemon-port`                | `18089`                  | Restricted RPC (internal)      |
-| `rpc-bind-ip` / `port`       | `0.0.0.0` / `28088`      | Container networking           |
-| `confirm-external-bind`      | `1`                      | Required for `0.0.0.0` binding |
+- **Enforced.** Data directory, log settings, bind addresses, both RPC ports, the database sync mode, the ban-list path, and the update check being off are `z.literal(...).catch(...)` — **repaired on read**, so a hand-edit is reverted rather than honored. The interfaces and health checks are built on those values.
+- **Configurable.** Peer limits, rate limits, mempool size, pruning, ZMQ, the block-notify command, the peer lists, and the RPC credentials.
+- **Enforced _absent_.** The proxy, transaction proxy, anonymous-inbound and transaction-padding keys are forced to `undefined`, so writing them into the file does nothing. They are passed as command-line flags instead, composed at start from the store.
 
-### 2. User-configurable, no package default
+**That last group is the design of the package.** Tor settings depend on values that only exist at start — the live address of the Tor service, and whether the Peer interface has an onion address yet — so the file records the user's _intent_ and the flags are computed from it each time.
 
-All numeric and toggle inputs in the actions are optional. The file model writes a line only when the user enters a value; leaving a field blank (or setting a triState toggle to the neutral state) omits the key and monerod applies its own default. Each field's footnote shows the upstream default.
-
-### 3. User-configurable, with a package default
-
-The few settings where the package takes an opinion. The default is pre-filled in the form and seeded into the file on first install.
-
-| Setting          | Package default | Upstream default      | Rationale                                                                                                                                                                                              |
-| ---------------- | --------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Wallet-RPC login | disabled        | n/a (one is required) | `monero-wallet-rpc` refuses to start without either `--rpc-login` or `--disable-rpc-login`. The Wallet RPC Settings action toggles `rpc-login`; `main.ts` adds `--disable-rpc-login` when it isn't set |
-
-No Tor intents are enabled by default — Monero ships in clearnet mode. Enable Tor outbound / inbound / outbound-proxy in the Anonymity Networks action.
-
-## Installation and First-Run Flow
-
-On fresh install, StartOS writes the config files before the daemons start:
-
-- **`monero.conf`** — enforced keys only. Every user-facing setting is absent, meaning monerod applies its own default.
-- **`monero-wallet-rpc.conf`** — enforced keys only. `disable-rpc-login` is not stored here; it's added as a CLI flag at daemon launch when no `rpc-login` is set (see below).
-- **`ban_list.txt`** — seeded from the upstream simple-monerod image's bundled list at `/home/monero/ban_list.txt` on first start. The seed runs again whenever the volume's file is empty (so a wiped volume re-seeds), but is skipped once the file is non-empty so user edits via the Edit Ban List action are preserved.
-- **`store.json`** — default intents (`outboundProxy=none`, everything else off / null).
-
-No setup wizard is required. The node begins syncing immediately after install, on clearnet.
-
-## Network Access and Interfaces
-
-| Interface      | Internal Port | External Port (LAN) | External Port (Tor) | Protocol | Purpose                           |
-| -------------- | ------------- | ------------------- | ------------------- | -------- | --------------------------------- |
-| Peer (P2P)     | 18080         | 18080               | 18080               | TCP      | Block/transaction exchange        |
-| Restricted RPC | 18089         | 443 (SSL)           | 18089               | HTTP     | Wallet connections, read-only API |
-| Wallet RPC     | 28088         | 28088 (SSL)         | 28088               | HTTP     | Server-side wallet management     |
-| ZMQ\*          | 18082         | 18082               | 18082               | TCP      | Block/tx notifications            |
-| ZMQ Pub-Sub\*  | 18083         | 18083               | 18083               | TCP      | Publish-subscribe                 |
-
-_\*ZMQ interfaces only appear when ZMQ is enabled in Other Settings. They are not created by default._
-
-The full (unrestricted) RPC on port 18081 is **not exposed** as a StartOS interface. It is accessible only from within the container network. External wallet connections use the restricted RPC on port 18089.
-
-The Peer interface's `.onion` URL (provisioned by StartOS when Tor is installed) is what monerod advertises as its `--anonymous-inbound` address when inbound Tor is enabled.
-
-## Actions (StartOS UI)
-
-All action inputs are optional unless noted. Numeric inputs show the monerod upstream default in their footnote. Toggle inputs are tri-state where applicable: `on`, `off`, or `default` (neutral — omits the key so monerod's own default applies).
-
-### Peer Settings
-
-Peer, rate-limit, and P2P privacy settings. Form field names mirror the monerod INI keys so hand-edits of `monero.conf` line up.
-
-| Input                | Writes to                        | Form default | Notes                                 |
-| -------------------- | -------------------------------- | ------------ | ------------------------------------- |
-| Max peers incoming   | `in-peers`                       | neutral      | Upstream: unlimited                   |
-| Max peers outgoing   | `out-peers`                      | neutral      | Upstream: 12                          |
-| Download speed limit | `limit-rate-down`                | neutral      | Upstream: 8192 kB/s                   |
-| Upload speed limit   | `limit-rate-up`                  | neutral      | Upstream: 2048 kB/s                   |
-| Hide my port         | `hide-my-port`                   | neutral      | Disables p2p port gossip              |
-| Public node          | `public-node`                    | neutral      | Advertises restricted RPC on P2P      |
-| Strict nodes         | `add-exclusive-node`             | neutral      | Replaces peer list behavior           |
-| Peer list            | `add-peer` / `add-priority-node` | empty        | Optional curated peers                |
-| Disable RPC ban      | `disable-rpc-ban`                | neutral      | Stops monerod banning misbehaving RPC |
-
-### Anonymity Networks
-
-Tor-related intents. Stored in `store.json`; `main.ts` resolves the Tor SOCKS proxy over the LXC bridge (`sdk.host.getBridgeAddress` → `10.0.3.1:9050`, held constant via a 9050 fallback so Tor install/uninstall never restarts monerod) and the Peer interface's own onion URL at runtime, then builds the matching monerod CLI args. The corresponding raw INI keys (`tx-proxy`, `proxy`, `anonymous-inbound`, `pad-transactions`) are enforced undefined in `monero.conf`, so hand-edits to those keys get stripped.
-
-| Input                                     | Maps to CLI arg                              | Default |
-| ----------------------------------------- | -------------------------------------------- | ------- |
-| Route all outbound traffic via            | `--proxy <tor-bridge>:9050`                  | none    |
-| Send local transactions through Tor proxy | `--tx-proxy tor,<tor-bridge>:9050,N`         | off     |
-| Accept inbound connections over Tor       | `--anonymous-inbound <onion>:<p2p>,...,N`    | off     |
-| Max Tor outbound conns                    | third field of `--tx-proxy`                  | 16      |
-| Max Tor inbound conns                     | third field of `--anonymous-inbound`         | 16      |
-| Dandelion++ noise                         | inverts `disable_noise` flag on `--tx-proxy` | neutral |
-| Pad transactions                          | `--pad-transactions`                         | off     |
-
-When **Send local transactions through Tor proxy** is on, monerod creates the Tor zone and bootstraps it against six hardcoded onion seeds compiled into the binary. Locally-originated transactions are then broadcast _only_ over Tor (never duplicated to clearnet). Block sync, peer gossip, and forwarding of transactions received from clearnet peers continue over clearnet — set **Route all outbound traffic via** to `tor` if you also want clearnet-zone outbound to go through the Tor SOCKS proxy.
-
-**Accept inbound connections over Tor** requires a `.onion` address on the Peer interface (Interfaces → Peer → Add Tor address). When inbound is on but no peer onion is provisioned, monerod is started without `--anonymous-inbound` and the Tor health check reports the misconfiguration. Inbound also implicitly enables `--tx-proxy tor,...`, since monerod requires a tx-proxy for any zone with an anonymous-inbound configured.
-
-### Edit Ban List
-
-Manage the list of IP addresses and IPv4 CIDR subnets that monerod bans at startup (`--ban-list`). One entry per line. The ban-list path is enforced in `monero.conf`; this action owns the file contents.
-
-### Daemon RPC Settings
-
-Configure authentication for the monerod restricted RPC.
-
-- **Input:** RPC credentials (disabled | enabled → username + password)
-- **Side effect:** When enabled, the wallet RPC's `daemon-login` is automatically synced to match
-
-### Wallet RPC Settings
-
-Configure authentication for `monero-wallet-rpc`.
-
-- **Input:** Wallet RPC credentials (disabled | enabled → username + password)
-
-### Other Settings
-
-Mempool, ZMQ, pruning, and block-notify command.
-
-| Input            | Writes to                             | Form default | Notes                                                   |
-| ---------------- | ------------------------------------- | ------------ | ------------------------------------------------------- |
-| Max TX pool size | `max-txpool-weight`                   | neutral      | MiB in the form, written to monero.conf as bytes        |
-| ZMQ              | `no-zmq`, `zmq-rpc-bind-*`, `zmq-pub` | neutral      | When on, enables ZMQ interfaces                         |
-| Pruning          | `prune-blockchain`                    | neutral      | One-way — cannot be un-pruned without re-sync           |
-| Block Notify     | `block-notify`                        | empty        | Free-text shell command. `%s` is replaced by block hash |
-
-### DB Salvage
-
-Runs monerod with `--db-salvage` once on next start, then restarts normally. Use only if monerod is failing to start due to database corruption.
-
-### Resync Blockchain
-
-Deletes the blockchain database (`lmdb/`) and re-downloads it from the network. For pruned nodes this is a full re-download.
-
-### Auto-Configure (hidden)
-
-A hidden action (`visibility: 'hidden'`) exposed for dependent services to write `monero.conf` settings on behalf of Monero. Invoked programmatically — not shown in the UI. Fields supplied in the prefill are locked in the form with the note "These fields were provided by a task and cannot be edited"; remaining fields stay editable and are merged into `monero.conf` on submit.
-
-## Backups and Restore
-
-| Volume    | Included | Exclusions                                                                                       |
-| --------- | -------- | ------------------------------------------------------------------------------------------------ |
-| `wallet`  | Full     | None                                                                                             |
-| `monerod` | Partial  | `lmdb/`, `logs/`, `p2pstate.bin`, `p2pstate_stripped.bin`, `net_stat.bin`, `dns_checkpoints.dat` |
-
-Only regeneratable state is excluded from the `monerod` volume: the blockchain database (re-syncs from the network), logs, transient p2p / network caches, and the DNS checkpoint cache. Config files (`monero.conf`, `monero-wallet-rpc.conf`) **are** backed up.
-
-**Restore behavior:** Restoring overwrites current wallet data. You will lose any transactions recorded in watch-only wallets and any funds received to the hot wallet since the last backup.
-
-## Health Checks
-
-| Check                        | Method                                | Grace Period | Notes                                                                                                                                                                                                              |
-| ---------------------------- | ------------------------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Monero Daemon**            | Port listening on 18089               | 30 seconds   | Restricted RPC reachability                                                                                                                                                                                        |
-| **Wallet RPC**               | Port listening on 28088               | Default      | monero-wallet-rpc reachability                                                                                                                                                                                     |
-| **Blockchain Sync Progress** | JSON-RPC `get_info` on restricted RPC | Default      | Uses HTTP Digest auth when Daemon RPC credentials are enabled. Starting → loading (`Syncing blocks...XX.XX%`) → success (`Monero is fully synced`)                                                                 |
-| **Tor**                      | Reads store + Tor package status      | n/a          | Disabled when no Tor intent is set, Tor isn't installed, or Tor isn't running. Failure when inbound is enabled but the Peer interface has no `.onion` address. Otherwise success — reports inbound/outbound state. |
-| **Clearnet**                 | Reads `outboundProxy` intent          | n/a          | Disabled when **Route all outbound traffic via** is set to Tor; otherwise success                                                                                                                                  |
+The ban list is a plain text file with its own model: one address or subnet per line, comments stripped on read, and seeded once from the list bundled in the image.
 
 ## Dependencies
 
-| Dependency | Required | Purpose                                |
-| ---------- | -------- | -------------------------------------- |
-| Tor        | Optional | SOCKS proxy for Tor outbound / inbound |
+One, optional, and **declared only while it is wanted**.
 
-Tor becomes a **runtime-required** dependency when any Tor intent is enabled in the Anonymity Networks action (outbound proxy, send local transactions through Tor proxy, or accept inbound over Tor). When all intents are off, Tor is not required. No volumes are mounted from Tor; monerod connects to the Tor SOCKS proxy at `<tor-container-ip>:9050`, resolved at daemon launch.
+| Dependency | Required               | Kind      | Why                           |
+| ---------- | ---------------------- | --------- | ----------------------------- |
+| Tor        | No — only if Tor is on | `running` | Outbound and inbound over Tor |
+
+Enabling any Tor intent adds the dependency; turning them all off removes it.
+
+**The Tor SOCKS address is resolved with a fallback**, so it stays constant whether Tor is installed, updated, or removed. That is deliberate: it means installing or restarting Tor never restarts the node, and a dead address is simply a refused connection until Tor is up.
+
+**Inbound over Tor additionally needs an onion address on the Peer interface**, added by the user through the interface's address settings. Until it exists, the node cannot advertise a hidden service, and the Tor health check says so rather than failing silently. Because monerod refuses to accept anonymous inbound without a transaction proxy on the same zone, turning inbound on turns outbound on with it.
+
+## Network Access and Interfaces
+
+Up to five interfaces, two of which exist only when ZMQ is enabled.
+
+| Interface      | Id               | Type | Port  | Description                         |
+| -------------- | ---------------- | ---- | ----- | ----------------------------------- |
+| Peer           | `peer`           | p2p  | 18080 | The peer-to-peer network            |
+| RPC            | `rpc-restricted` | api  | 18089 | The restricted RPC, for wallets     |
+| Wallet RPC     | `rpc-wallet`     | api  | 28088 | Server-side wallet management       |
+| ZeroMQ         | `zmq`            | api  | 18082 | Block and transaction notifications |
+| ZeroMQ Pub-Sub | `zmq-pubsub`     | api  | 18083 | The publish-subscribe stream        |
+
+The peer and ZeroMQ bindings are raw TCP with the external port preserved; the two RPC bindings are HTTP.
+
+**The unrestricted RPC port is not exported.** monerod listens on it inside the service, and nothing publishes an address for it — the restricted port is what wallets and dependents are given.
+
+**The ZeroMQ pair is conditional.** They are exported only while ZMQ is enabled in the configuration, so enabling it and restarting is what makes them appear.
+
+**The Wallet RPC is exported and, by default, unauthenticated.** Credentials are off out of the box, which means anyone who can reach that address can create and open wallets on this server and spend from them. Set wallet RPC credentials before exposing it anywhere, and treat the address as sensitive regardless.
+
+Daemon RPC credentials are separate and also off by default. Setting them applies to both RPC ports at once, and the package's own sync check authenticates with them over HTTP Digest.
+
+## Installation and First-Run Flow
+
+Install seeds both configuration files with their enforced values and the store with its defaults: no proxy, no Tor, no credentials.
+
+The node then starts and **syncs the Monero blockchain**, which is a long, disk-heavy operation. The sync check reports progress as a percentage the whole way.
+
+There is no task and no wizard — a fresh install is a working clearnet node. Everything else is opt-in: Tor, credentials, pruning, ZMQ, and the peer policy are all actions.
+
+## Actions
+
+Nine actions, in two groups plus one hidden.
+
+### Configuration
+
+#### Peer Settings
+
+Inbound and outbound peer limits, rate limits, port gossip, remote-node advertisement, and the peer list.
+
+- **What it changes:** the networking keys in the node configuration.
+- **Note:** the "specific nodes only" toggle changes how the peer list is written — as exclusive nodes rather than as ordinary and priority ones.
+
+#### Anonymity Networks
+
+The Tor intents: outbound proxy, transaction broadcast, inbound hidden service, per-zone connection limits, Dandelion++ noise, and transaction padding.
+
+- **What it changes:** the store, and through it the flags the node is started with and whether Tor is a dependency.
+- **Repeat safety:** idempotent. Enabling inbound **forces outbound on**, in the form and in what is stored, because monerod requires both.
+
+#### Edit Ban List
+
+The list of addresses and subnets the node bans at start.
+
+- **What it changes:** the ban-list file, which monerod reads at start.
+- Comments and blank lines in a hand-edited file are dropped when the action rewrites it.
+
+#### Daemon RPC Settings
+
+The username and password for the node's RPC.
+
+- **What it changes:** the credentials in the node configuration, **and** the matching daemon login in the wallet RPC configuration, so the wallet server keeps working.
+
+#### Wallet RPC Settings
+
+The credentials for the wallet RPC server.
+
+- **What it changes:** the wallet RPC configuration. Whether credentials are set decides which mutually exclusive flag the server is started with, so the file is never the source of truth for the "disabled" case.
+
+#### Other Settings
+
+Mempool size, ZMQ, pruning, and the block-notify command.
+
+- **Pruning saves roughly two thirds of the disk**, and enabling it on an already-synced node does not shrink the existing database — that needs a resync.
+
+### Maintenance
+
+#### DB Salvage
+
+Runs the node once with its salvage flag, then starts normally.
+
+- **For a database that will not open.** It restarts the service if running, and is otherwise applied on the next start.
+
+#### Resync Blockchain
+
+Deletes the blockchain database so it is downloaded again.
+
+- **Irreversible and expensive** — a full re-sync, measured in days on modest hardware.
+- Wallets are untouched; only the chain is deleted.
+
+### Hidden
+
+#### Auto-Configure
+
+Not shown in the UI. It lets a dependent service write the node settings it needs, with the fields it supplies locked in the form.
+
+## Tasks
+
+None. This package raises no tasks, so the service is never held on a prompt and its ordinary controls are always available.
+
+## Health Checks
+
+Two daemon checks and three standalone ones.
+
+| Check           | Displayed as               | Method                                          |
+| --------------- | -------------------------- | ----------------------------------------------- |
+| `monerod`       | "Monero Daemon"            | The restricted RPC port is listening            |
+| `wallet-rpc`    | "Wallet RPC"               | The wallet RPC port is listening                |
+| `sync-progress` | "Blockchain Sync Progress" | The node's own status, over authenticated RPC   |
+| `tor`           | "Tor"                      | What the Tor intents actually resolved to       |
+| `clearnet`      | "Clearnet"                 | Whether clearnet is in use, and inbound-capable |
+
+**The sync check speaks the node's RPC, not a port test**, and authenticates with HTTP Digest when credentials are set — so it keeps reporting after the RPC is locked down, and it reports a percentage rather than a binary.
+
+**The Tor and Clearnet checks are status displays rather than failures.** They report "disabled" when a path is not in use, and the Tor one turns red in exactly one situation: inbound is enabled but the Peer interface has no onion address — the one misconfiguration a user cannot otherwise see.
+
+## Backups and Restore
+
+All three volumes are copied, with the heavy and rebuildable parts excluded — `sdk.Backups.ofVolumes(...).setOptions({ exclude })`.
+
+**The blockchain database is excluded**, along with the logs and the peer-state files. It is public data that re-downloads, and including it would make every backup as large as the chain. **A restored node therefore syncs from scratch**, which is the intended trade.
+
+Everything that cannot be recovered from the network is kept: the **wallet volume**, both configuration files, the ban list, and the store — which is where the anonymity intents live, so a restored node comes back routing its traffic the way the original did.
 
 ## Limitations and Differences
 
-1. **No mining support** — `--start-mining`, `--mining-threads`, `--bg-mining-enable` are not exposed.
-2. **No I2P support** — only Tor is available as an anonymity network today. (Infrastructure is in place to add I2P once an I2P StartOS package is available.)
-3. **No bootstrap daemon** — `--bootstrap-daemon-address` is not exposed; the node does a full sync.
-4. **Unrestricted RPC is internal only** — port 18081 is not exposed. Wallets connect via the restricted RPC on 18089.
-5. **Pruning is one-way** — once enabled, the blockchain cannot be un-pruned without a full re-sync.
-6. **DNS features disabled** — DNS checkpointing and DNS blocklist are disabled; irrelevant in clearnet mode, and DNS leaks privacy in Tor-only mode.
-7. **UPnP disabled** — `igd=disabled` is enforced. StartOS handles port mapping.
-8. **No hand-editing of Tor / pad-transactions keys in `monero.conf`** — `tx-proxy`, `proxy`, `anonymous-inbound`, and `pad-transactions` are forced undefined by the file model. Configure these via the Anonymity Networks action (which writes to `store.json`); `main.ts` synthesises the matching CLI args at daemon launch.
-9. **Initial sync over Tor is slow** — full-blockchain sync through Tor can take significantly longer than clearnet. Consider syncing on clearnet first and enabling Tor afterward if sync-time privacy is not a concern.
-
-## What Is Unchanged from Upstream
-
-- Full blockchain validation (no light/SPV mode)
-- All standard RPC methods available on the restricted endpoint
-- Wallet RPC functionality (create wallets, send/receive, view balance)
-- Transaction relay and mempool behavior
-- P2P protocol and block propagation
-- Pruning implementation and storage savings
-- Dandelion++ privacy protocol
-- All cryptographic operations
-
-## Wallet Integrations
-
-See [docs/wallet-integrations.md](docs/wallet-integrations.md) for step-by-step guides connecting wallets to your Monero node:
-
-- Anonero (Android)
-- Cake Wallet (Android / iOS)
-- Feather Wallet (Linux / Mac / Windows)
-- Monero GUI (Linux / Mac / Windows)
-- Monerujo (Android)
-- Haveno RetoSwap (Linux / Mac / Windows)
-
-## Contributing
-
-Build and development workflow follow the StartOS packaging guide: <https://docs.start9.com/packaging>. Keep `README.md`, `instructions.md`, and `AGENTS.md` in sync with any change to user-visible behavior or package structure.
+1. **The blockchain is not backed up.** A restore re-syncs from the network.
+2. **The Wallet RPC is exported with no credentials by default**, and it can spend from any wallet it can open.
+3. **Tor inbound needs an onion address added by hand** to the Peer interface before it can work.
+4. **The images are a third-party build**, not the Monero project's own.
+5. **Several config keys cannot be set in the file** — the proxy and inbound flags are computed at start and stripped from the file on read.
+6. **Enabling pruning does not shrink an existing database**; only a resync does.
+7. **The unrestricted RPC has no exported address.**
+8. **ZeroMQ interfaces only exist while ZMQ is enabled**, and appear after a restart.
 
 ---
 
@@ -290,36 +257,32 @@ Build and development workflow follow the StartOS packaging guide: <https://docs
 
 ```yaml
 package_id: monerod
-upstream_version: see manifest dockerTags
-images:
-  monerod: ghcr.io/sethforprivacy/simple-monerod
-  wallet-rpc: ghcr.io/sethforprivacy/simple-monero-wallet-rpc
-architectures: [x86_64, aarch64]
+image: ghcr.io/sethforprivacy/simple-monerod # plus simple-monero-wallet-rpc, same version
+architectures:
+  - x86_64
+  - aarch64
+subcontainers:
+  - monerod
+  - wallet-rpc
 volumes:
+  main: null # store.json only; not mounted into any container, but is backed up
   monerod: /home/monero/.bitmonero
   wallet: /home/monero/wallet
-  main: not mounted (hosts store.json)
-ports:
-  peer: 18080
-  rpc-restricted: 18089
-  rpc-wallet: 28088
-  rpc-unrestricted: 18081 (internal only)
-  zmq: 18082 (conditional)
-  zmq-pubsub: 18083 (conditional)
+file_models:
+  - monero.conf # ini; enforced literals + keys forced undefined because they are CLI args
+  - monero-wallet-rpc.conf # ini; disable-rpc-login forced undefined, added as a flag instead
+  - store.json # anonymity intents, dbSalvage and resync flags
+  - ban_list.txt # raw; seeded from the image's bundled list
+startos_managed_env_vars: [] # everything is config files plus computed CLI args
 dependencies:
-  - tor (optional, required when any Tor intent is enabled)
-config_files:
-  - monero.conf (monerod volume)
-  - monero-wallet-rpc.conf (wallet volume)
-  - ban_list.txt (monerod volume)
-  - store.json (main volume; anonymity intents + maintenance flags)
-config_model:
-  enforced: pinned via zod literals, hidden from UI
-  enforced_undefined:
-    - tx-proxy, proxy, anonymous-inbound, pad-transactions (resolved to CLI args in main.ts)
-  optional: tri-state toggles + nullable numbers; blank means "use upstream default"
-  package_preferences:
-    - wallet-rpc login disabled by default
+  - tor # optional, kind: running, declared only while a Tor intent is enabled
+interfaces:
+  peer: { type: p2p, port: 18080 }
+  rpc-restricted: { type: api, port: 18089 }
+  rpc-wallet: { type: api, port: 28088 } # unauthenticated by default
+  zmq: { type: api, port: 18082 } # only while ZMQ is enabled
+  zmq-pubsub: { type: api, port: 18083 } # only while ZMQ is enabled
+  # the unrestricted RPC (18081) is bound in-container but never exported
 actions:
   - peers-config
   - anonymity-config
@@ -327,16 +290,14 @@ actions:
   - rpc-config
   - wallet-rpc-config
   - other-config
-  - autoconfig (hidden; for dependent services to seed monero.conf)
+  - autoconfig # hidden; for dependent services
   - db-salvage
   - resync-blockchain
+tasks: []
 health_checks:
-  - monerod: port_listening 18089 (30s grace)
-  - wallet-rpc: port_listening 28088
-  - sync-progress: json-rpc get_info
-  - tor: intent + tor container status
-  - clearnet: disabled iff outboundProxy = tor
-backup_volumes:
-  - wallet (full)
-  - monerod (excluding lmdb/, logs/, p2pstate*, net_stat.bin, dns_checkpoints.dat)
+  - monerod
+  - wallet-rpc
+  - sync-progress # authenticated JSON-RPC get_info, reports a percentage
+  - tor # status display; fails only when inbound is on with no .onion
+  - clearnet # status display
 ```
