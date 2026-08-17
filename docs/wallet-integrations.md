@@ -15,7 +15,7 @@
 
 **Platform:** Android
 
-> This guide assumes that you have setup [Tor](https://docs.start9.com/latest/user-manual/connecting/connecting-tor/tor-os/tor-android) connectivity on your Android device before continuing.
+> This guide assumes that you have setup [Tor](https://docs.start9.com/start-os/tor#running-tor-in-the-background-on-your-phonelaptop) connectivity on your Android device before continuing.
 
 1. Download [Anonero](http://anonero5wmhraxqsvzq2ncgptq6gq45qoto6fnkfwughfl4gbt44swad.onion/) (onion link). There are two apps, Anon, and Nero.
 1. Open Anon and create a wallet.
@@ -33,7 +33,7 @@
 
 **Platform:** Android, iOS
 
-> This guide assumes that you have setup [Tor](https://docs.start9.com/latest/user-manual/connecting/connecting-tor/tor-os/tor-android) connectivity on your device before continuing.
+> This guide assumes that you have setup [Tor](https://docs.start9.com/start-os/tor#running-tor-in-the-background-on-your-phonelaptop) connectivity on your device before continuing.
 
 1. Download [Cake Wallet](https://cakewallet.com/).
 1. Open Cake and create or restore a wallet.
@@ -51,7 +51,7 @@
 
 **Platform:** Linux, Mac, Windows
 
-> This guide assumes that you have setup [LAN](https://docs.start9.com/latest/user-manual/connecting/connecting-lan) and/or [Tor](https://docs.start9.com/latest/user-manual/connecting/connecting-tor) connectivity on your desktop before continuing. LAN is recommended for local (home/office) use, and Tor is recommended for remote access.
+> This guide assumes that you have setup [LAN](https://docs.start9.com/start-os/lan) and/or [Tor](https://docs.start9.com/start-os/tor) connectivity on your desktop before continuing. LAN is recommended for local (home/office) use, and Tor is recommended for remote access.
 
 1. Download for your OS from https://featherwallet.org/download/.
 1. Go to File -> Settings -> Network (or click the network icon in the bottom right of the application), then click "Add Custom Node(s)."
@@ -66,7 +66,7 @@
 
 **Platform:** Linux, Mac, Windows
 
-> This guide assumes that you have setup [LAN](https://docs.start9.com/latest/user-manual/connecting/connecting-lan) and/or [Tor](https://docs.start9.com/latest/user-manual/connecting/connecting-tor) connectivity on your desktop before continuing. LAN is recommended for local (home/office) use, and Tor is recommended for remote access.
+> This guide assumes that you have setup [LAN](https://docs.start9.com/start-os/lan) and/or [Tor](https://docs.start9.com/start-os/tor) connectivity on your desktop before continuing. LAN is recommended for local (home/office) use, and Tor is recommended for remote access.
 
 1. Download for your OS from https://www.getmonero.org/downloads/.
 1. Go to Settings -> Node -> Remote Node, then click "+ Add Remote Node."
@@ -81,7 +81,7 @@
 
 **Platform:** Android
 
-> This guide assumes that you have setup [Tor](https://docs.start9.com/latest/user-manual/connecting/connecting-tor/tor-os/tor-android) connectivity on your Android device before continuing.
+> This guide assumes that you have setup [Tor](https://docs.start9.com/start-os/tor#running-tor-in-the-background-on-your-phonelaptop) connectivity on your Android device before continuing.
 
 1. Download Monerujo from your app registry of choice (Aurora, F-Droid, Play Store), or directly from the [GitHub repository](https://github.com/m2049r/xmrwallet/releases).
 1. Open Monerujo and tap the globe image under "Network" to switch to Tor, then tap to the right of that (on either the existing node or the loading text) to enter the node selection screen. Then tap the `+` in the bottom-right.
