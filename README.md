@@ -195,7 +195,7 @@ Mempool size, ZMQ, pruning, and the block-notify command.
 
 #### DB Salvage
 
-Runs the node once with its salvage flag, then starts normally.
+Starts the node once with its salvage flag; later starts are normal.
 
 - **For a database that will not open.** It restarts the service if running, and is otherwise applied on the next start.
 

@@ -115,7 +115,9 @@ export const main = sdk.setupMain(async ({ effects }) => {
 
   // Anonymity intents live in store.json and drive the Tor CLI args below.
   // init seeds store.json, so the read is guaranteed non-null here.
-  const store = (await storeJson.read().const(effects))!
+  const store = (await storeJson
+    .read(({ dbSalvage, resync, ...anonymity }) => anonymity)
+    .const(effects))!
   const anyTorUse =
     store.outboundProxy === 'tor' || store.torOutbound || store.torInbound
 
@@ -229,16 +231,6 @@ export const main = sdk.setupMain(async ({ effects }) => {
   }
 
   if (dbSalvage) {
-    await monerodSub.exec(
-      [
-        'monerod',
-        '--non-interactive',
-        '--db-salvage',
-        '--data-dir',
-        '/home/monero/.bitmonero',
-      ],
-      { user: 'root' },
-    )
     await storeJson.merge(effects, { dbSalvage: false })
   }
 
@@ -315,6 +307,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
           '--config-file',
           '/home/monero/.bitmonero/monero.conf',
           ...anonymityArgs,
+          ...(dbSalvage ? ['--db-salvage'] : []),
         ],
       },
       ready: {
