@@ -40,12 +40,12 @@ const dict = {
 
   // actions/dbSalvage.ts
   'DB Salvage': 30,
-  'Attempt to salvage a corrupted blockchain database. Monerod will run with --db-salvage on next start, then restart normally.': 31,
+  'Attempt to salvage a corrupted blockchain database. Monerod runs with --db-salvage on its next start; later starts are normal.': 31,
   'Only use this if monerod is failing to start due to database corruption. The service will restart if currently running.': 32,
   Maintenance: 33,
   Success: 34,
-  'Restarting monerod with --db-salvage. It will restart normally after salvage completes.': 35,
-  'The next time monerod starts, it will run --db-salvage before starting normally.': 36,
+  'Restarting monerod with --db-salvage. Later starts are normal.': 35,
+  'The next time monerod starts, it will run with --db-salvage. Later starts are normal.': 36,
 
   // actions/resyncBlockchain.ts
   'Resync Blockchain': 37,

@@ -40,7 +40,7 @@ Configuration is split across several actions so each one is small enough to fit
 - **Daemon RPC Settings** — enable or disable username/password authentication on the restricted RPC. When enabled, the Wallet RPC's daemon login is kept in sync automatically.
 - **Wallet RPC Settings** — enable or disable username/password authentication on `monero-wallet-rpc`.
 - **Other Settings** — mempool size cap, toggle the ZeroMQ interfaces, enable blockchain pruning, and a free-text block-notify command (use `%s` as the block-hash placeholder).
-- **DB Salvage** (Maintenance) — schedules `monerod --db-salvage` on next start and restarts. Run only if `monerod` is failing to start due to database corruption.
+- **DB Salvage** (Maintenance) — runs `monerod` with `--db-salvage` on its next start and restarts it. Run only if `monerod` is failing to start due to database corruption.
 - **Resync Blockchain** (Maintenance) — deletes the blockchain database and re-downloads it from the network. For pruned nodes this is a full re-download from genesis.
 
 ## Limitations
