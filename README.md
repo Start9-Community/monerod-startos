@@ -104,7 +104,7 @@ The ban list is a plain text file with its own model: one address or subnet per 
 
 ## Dependencies
 
-One, optional, and **declared only while it is wanted**.
+One, optional, and **active only while it is wanted**.
 
 | Dependency | Required               | Kind      | Why                           |
 | ---------- | ---------------------- | --------- | ----------------------------- |
@@ -275,7 +275,7 @@ file_models:
   - ban_list.txt # raw; seeded from the image's bundled list
 startos_managed_env_vars: [] # everything is config files plus computed CLI args
 dependencies:
-  - tor # optional, kind: running, declared only while a Tor intent is enabled
+  - tor # optional, kind: running, active only while a Tor intent is enabled
 interfaces:
   peer: { type: p2p, port: 18080 }
   rpc-restricted: { type: api, port: 18089 }
