@@ -32,7 +32,7 @@ const iniStringArray = z
 
 // ── INI shape (raw file keys) ───────────────────────────────────────
 
-export const shape = z.object({
+export const shape = z.looseObject({
   // Enforced
   'data-dir': z
     .literal('/home/monero/.bitmonero')
@@ -119,7 +119,9 @@ const peerSpec = InputSpec.of({
         // Bracketed: IPv6 literal. Colons are not permitted outside brackets,
         // so users can't sneak host:port into the hostname field.
         regex: '^([a-zA-Z0-9._-]+|\\[[0-9a-fA-F:]+\\])$',
-        description: i18n('Hostname'),
+        description: i18n(
+          'Enter a domain name, onion or IP address, without a port. Bracket IPv6 addresses.',
+        ),
       },
     ],
   }),
@@ -176,7 +178,7 @@ export const fullConfigSpec = InputSpec.of({
   'block-notify': Value.text({
     name: i18n('Block Notify Command'),
     description: i18n(
-      'Shell command monerod runs on every new block. The token `%s` is replaced by the block hash. Leave empty to disable. Example: /usr/bin/curl -so /dev/null https://example.com/notify/%s',
+      'Shell command monerod runs on every new block. The token %s is replaced by the block hash. Leave empty to disable. Example: /usr/bin/curl -so /dev/null https://example.com/notify/%s',
     ),
     required: false,
     default: null,
@@ -287,7 +289,7 @@ export const fullConfigSpec = InputSpec.of({
   'rpc-credentials': Value.union({
     name: i18n('RPC Credentials'),
     description: i18n(
-      'Enable or disable a username and password to access the Monero RPC.',
+      "Whether Monero's RPC requires a username and password.\n- Disabled: any client that can reach the RPC can use it.\n- Enabled: every client, wallets included, must authenticate with the username and password set here.",
     ),
     default: 'disabled',
     variants: Variants.of({
@@ -300,9 +302,7 @@ export const fullConfigSpec = InputSpec.of({
         spec: InputSpec.of({
           username: Value.text({
             name: i18n('RPC Username'),
-            description: i18n(
-              "The username for connecting to Monero's unrestricted RPC interface",
-            ),
+            description: null,
             warning: i18n(
               'Changing this value will necessitate a restart of all services that depend on Monero.',
             ),
@@ -312,9 +312,7 @@ export const fullConfigSpec = InputSpec.of({
           }),
           password: Value.text({
             name: i18n('RPC Password'),
-            description: i18n(
-              "The password for connecting to Monero's unrestricted RPC interface",
-            ),
+            description: null,
             warning: i18n(
               'Changing this value will necessitate a restart of all services that depend on Monero.',
             ),

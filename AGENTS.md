@@ -18,15 +18,22 @@ Freshly scaffolded? Work the
 guide page, not a file in this repo — read it, don't copy it in.
 
 Keep `README.md` (technical reference for an AI support or administering agent) and
-`instructions.md` (end-user docs) in sync with your changes.
+`instructions.md` (end-user docs) in sync with your changes. This file restates neither:
+whoever changes the package has both, so it carries only what they don't — repo mechanics,
+a change that looks right and is not, where the next thing gets added, a naming trap, a
+build or test invocation particular to this repo.
 
-**Bugs and feature requests are GitHub issues on this repo** — file them as you find them.
+**Fix a defect you spot rather than reporting it** — you have the package open and the
+context to be sure. File **a GitHub issue on this repo** only when the call isn't yours to
+make: you can't pin the cause down, two defensible fixes exist, or it's too large to ride on
+the work in hand. An open issue is a report, not a queue — implement one when you're asked
+to or when it's labelled `Approved`, then close it with `Closes #<n>`.
+
 Don't record work in the repo instead: no `TODO.md`, no `NOTES.md`, no `PLAN.md`. What you
 verified, tried, and decided belongs in the commit message and the PR body.
 
 ## This repo
 
-- **`startos/utils.ts`'s host-id and interface-id constants, the manifest `id`/volumes, and the `autoconfig` action are a public API.** btcpayserver imports them. Renaming one is a cross-repo change — update the dependent in the same PR.
-- **Tor flags are CLI args, never conf keys.** `proxy`, `tx-proxy`, `anonymous-inbound` and `pad-transactions` are `z.undefined().catch(undefined)` in `monero.conf.ts` so a hand-edit is stripped on read; `main.ts` composes them from `store.json` plus values only available at start (Tor's live address, whether the Peer interface has an onion yet).
-- **The `nocow` oneshot must run before monerod.** Btrfs CoW fragments LMDB into millions of extents and stalls the pre-update volume snapshot; `chattr +C` only takes on directories and empty files, so an existing `data.mdb` picks it up on the next resync.
-- **`main` is not mounted into either subcontainer** — it exists only for `store.json`, which this package's own code reads and writes.
+- **`startos/utils.ts`'s host-id and interface-id constants, the manifest `id`/volumes, the `autoconfig` action and its input keys, and the `monerod` daemon id are a public API.** btcpayserver imports the first three and gates on the daemon as a health check. Renaming one is a cross-repo change — update the dependent in the same PR.
+- **Never model `proxy`, `tx-proxy`, `anonymous-inbound` or `pad-transactions` as `monero.conf` keys** — they need values that exist only at start, so `main.ts` passes them as flags.
+- **Keep `nocow` in the `monerod` daemon's `requires`** — `chattr +C` takes only on directories and empty files, so it has to run before the database is opened.

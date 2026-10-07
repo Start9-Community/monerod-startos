@@ -79,12 +79,12 @@ const dict = {
 
   // actions/config/anonymity.ts
   'Route all outbound traffic via': 55,
-  'Force the public (clearnet) zone to dial out through a SOCKS proxy. Maps to monerod --proxy. Only one proxy is allowed; forcing all traffic through Tor exits can be slow and has privacy trade-offs.': 56,
+  'How monerod reaches clearnet peers. Maps to monerod --proxy.\n- Disabled: monerod connects to clearnet peers directly.\n- Tor: monerod sends all its clearnet traffic, blockchain sync included, through Tor. Requires Tor.': 56,
   Disabled: 57,
   'Send local transactions through Tor proxy': 58,
-  'Use a Tor SOCKS proxy when broadcasting locally-originated transactions, so the originating IP is concealed from the rest of the network. Monerod creates a Tor zone, bootstraps it against six hardcoded onion seeds, builds a Tor-zone peerlist via gossip, and broadcasts only locally-originated transactions through those peers. Clearnet block sync, gossip, and forwarded transactions continue over clearnet. For maximum privacy also enable Pad transactions. Maps to monerod --tx-proxy tor,<tor-ip>:9050.': 59,
+  'Use a Tor SOCKS proxy when broadcasting locally-originated transactions, so the originating IP is concealed from the rest of the network. Monerod creates a Tor zone, bootstraps it against six hardcoded onion seeds, builds a Tor-zone peerlist via gossip, and broadcasts only locally-originated transactions through those peers. Clearnet block sync, gossip, and forwarded transactions continue over clearnet. For maximum privacy also enable Pad transactions. Maps to monerod --tx-proxy.': 59,
   'Accept inbound connections over Tor': 60,
-  'Advertise this node as a Tor hidden service and accept inbound peer connections over it. Requires a .onion address on the Peer interface — add one via Interfaces → Peer → Add Tor address. Implicitly enables Send local transactions through Tor proxy, since monerod requires both for the Tor zone. Maps to monerod --anonymous-inbound <onion>:18080,...': 61,
+  'Advertise this node as a Tor hidden service and accept inbound peer connections over it. Requires a .onion address on the Peer interface — add one via Interfaces → Peer → Add Tor address. Implicitly enables Send local transactions through Tor proxy, since monerod requires both for the Tor zone. Maps to monerod --anonymous-inbound.': 61,
   'Max Tor Outbound Connections': 62,
   "Maximum number of simultaneous outbound connections monerod opens to Tor's SOCKS proxy.": 63,
   Default: 64,
@@ -94,14 +94,13 @@ const dict = {
   'Enables white-noise and Dandelion++ sender-node obfuscation on the Tor tx-broadcast zone.': 68,
   Enabled: 69,
   'Pad transactions': 70,
-  'Pad transaction size to reduce traffic-analysis correlation. Recommended when routing any transaction traffic over Tor.': 71,
+  'Pad the transactions this node relays to help defend against traffic-volume analysis. Maps to monerod --pad-transactions.': 71,
   'Anonymity Networks': 72,
   'Configure how Monero uses anonymity networks like Tor for outbound traffic, transaction broadcast, and inbound connections.': 73,
 
   // fileModels/monero.conf.ts
   'Must be alphanumeric and/or can contain an underscore': 74,
   Hostname: 75,
-  'Domain name, onion or IP address of Monero peer.': 76,
   Port: 77,
   'TCP Port that peer is listening on for inbound p2p connections.': 78,
   'Priority Node': 79,
@@ -115,7 +114,7 @@ const dict = {
   Pruning: 87,
   'Blockchain pruning prunes proof data from transactions after verification but before storage. Saves roughly 2/3 of disk space.': 88,
   'Block Notify Command': 89,
-  'Shell command monerod runs on every new block. The token `%s` is replaced by the block hash. Leave empty to disable. Example: /usr/bin/curl -so /dev/null https://example.com/notify/%s': 90,
+  'Shell command monerod runs on every new block. The token %s is replaced by the block hash. Leave empty to disable. Example: /usr/bin/curl -so /dev/null https://example.com/notify/%s': 90,
   'Max Peers Incoming': 91,
   'Maximum number of simultaneous peers connecting inbound to the Monero daemon.': 92,
   Unlimited: 93,
@@ -137,26 +136,23 @@ const dict = {
   'Upload Speed Limit': 109,
   "Keep the Monero p2p node's outgoing bandwidth rate limited at or under this many kilobytes per second.": 110,
   'RPC Credentials': 111,
-  'Enable or disable a username and password to access the Monero RPC.': 112,
+  "Whether Monero's RPC requires a username and password.\n- Disabled: any client that can reach the RPC can use it.\n- Enabled: every client, wallets included, must authenticate with the username and password set here.": 112,
   'RPC Username': 113,
-  "The username for connecting to Monero's unrestricted RPC interface": 114,
   'Changing this value will necessitate a restart of all services that depend on Monero.': 115,
   'RPC Password': 116,
-  "The password for connecting to Monero's unrestricted RPC interface": 117,
 
   // fileModels/monero-wallet-rpc.conf.ts
   'Wallet RPC Credentials': 118,
-  'Enable or disable a username and password to access the Monero wallet RPC.': 119,
+  'Whether the wallet RPC requires a username and password.\n- Disabled: any client that can reach the wallet RPC can use it.\n- Enabled: every client must authenticate with the username and password set here.': 119,
   'Wallet RPC Username': 120,
-  "The username for connecting to Monero's wallet RPC interface": 121,
   "Changing this value will necessitate a restart of all services that depend on Monero's wallet RPC.": 122,
   'Wallet RPC Password': 123,
-  "The password for connecting to Monero's wallet RPC interface": 124,
 
   // actions/config/autoconfig.ts
   'Auto-Configure': 125,
   'Automatically configure monero.conf for the needs of another service': 126,
   'These fields were provided by a task and cannot be edited': 127,
+  'Enter a domain name, onion or IP address, without a port. Bracket IPv6 addresses.': 131,
 } as const
 
 export type I18nKey = keyof typeof dict

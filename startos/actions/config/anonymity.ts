@@ -16,7 +16,7 @@ const anonymitySpec = InputSpec.of({
   outboundProxy: Value.select({
     name: i18n('Route all outbound traffic via'),
     description: i18n(
-      'Force the public (clearnet) zone to dial out through a SOCKS proxy. Maps to monerod --proxy. Only one proxy is allowed; forcing all traffic through Tor exits can be slow and has privacy trade-offs.',
+      'How monerod reaches clearnet peers. Maps to monerod --proxy.\n- Disabled: monerod connects to clearnet peers directly.\n- Tor: monerod sends all its clearnet traffic, blockchain sync included, through Tor. Requires Tor.',
     ),
     default: 'none',
     values: {
@@ -27,14 +27,14 @@ const anonymitySpec = InputSpec.of({
   torOutbound: Value.toggle({
     name: i18n('Send local transactions through Tor proxy'),
     description: i18n(
-      'Use a Tor SOCKS proxy when broadcasting locally-originated transactions, so the originating IP is concealed from the rest of the network. Monerod creates a Tor zone, bootstraps it against six hardcoded onion seeds, builds a Tor-zone peerlist via gossip, and broadcasts only locally-originated transactions through those peers. Clearnet block sync, gossip, and forwarded transactions continue over clearnet. For maximum privacy also enable Pad transactions. Maps to monerod --tx-proxy tor,<tor-ip>:9050.',
+      'Use a Tor SOCKS proxy when broadcasting locally-originated transactions, so the originating IP is concealed from the rest of the network. Monerod creates a Tor zone, bootstraps it against six hardcoded onion seeds, builds a Tor-zone peerlist via gossip, and broadcasts only locally-originated transactions through those peers. Clearnet block sync, gossip, and forwarded transactions continue over clearnet. For maximum privacy also enable Pad transactions. Maps to monerod --tx-proxy.',
     ),
     default: false,
   }),
   torInbound: Value.toggle({
     name: i18n('Accept inbound connections over Tor'),
     description: i18n(
-      'Advertise this node as a Tor hidden service and accept inbound peer connections over it. Requires a .onion address on the Peer interface — add one via Interfaces → Peer → Add Tor address. Implicitly enables Send local transactions through Tor proxy, since monerod requires both for the Tor zone. Maps to monerod --anonymous-inbound <onion>:18080,...',
+      'Advertise this node as a Tor hidden service and accept inbound peer connections over it. Requires a .onion address on the Peer interface — add one via Interfaces → Peer → Add Tor address. Implicitly enables Send local transactions through Tor proxy, since monerod requires both for the Tor zone. Maps to monerod --anonymous-inbound.',
     ),
     default: false,
   }),
@@ -73,7 +73,7 @@ const anonymitySpec = InputSpec.of({
   padTransactions: Value.toggle({
     name: i18n('Pad transactions'),
     description: i18n(
-      'Pad transaction size to reduce traffic-analysis correlation. Recommended when routing any transaction traffic over Tor.',
+      'Pad the transactions this node relays to help defend against traffic-volume analysis. Maps to monerod --pad-transactions.',
     ),
     default: false,
   }),

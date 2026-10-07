@@ -8,7 +8,7 @@ const iniString = z
   .optional()
   .catch(undefined)
 
-const shape = z.object({
+const shape = z.looseObject({
   // Enforced
   'wallet-dir': z.literal('/home/monero/wallet').catch('/home/monero/wallet'),
   'log-file': z
@@ -27,8 +27,8 @@ const shape = z.object({
   // Enforced undefined. disable-rpc-login is mutually exclusive with
   // rpc-login; main.ts adds it as a CLI flag when rpc-login is unset so the
   // conf file is never the source of truth. Forcing undefined here strips
-  // any legacy value on the next read/write — the SDK's z.object is loose
-  // by default, so we have to explicitly null this out instead of omitting.
+  // any legacy value on the next read/write — the shape is loose, so we
+  // have to explicitly null this out instead of omitting.
   'disable-rpc-login': z.undefined().catch(undefined),
 })
 
@@ -69,7 +69,7 @@ export const walletRpcConfigSpec = InputSpec.of({
   'wallet-rpc-credentials': Value.union({
     name: i18n('Wallet RPC Credentials'),
     description: i18n(
-      'Enable or disable a username and password to access the Monero wallet RPC.',
+      'Whether the wallet RPC requires a username and password.\n- Disabled: any client that can reach the wallet RPC can use it.\n- Enabled: every client must authenticate with the username and password set here.',
     ),
     default: 'disabled',
     variants: Variants.of({
@@ -82,9 +82,7 @@ export const walletRpcConfigSpec = InputSpec.of({
         spec: InputSpec.of({
           username: Value.text({
             name: i18n('Wallet RPC Username'),
-            description: i18n(
-              "The username for connecting to Monero's wallet RPC interface",
-            ),
+            description: null,
             warning: i18n(
               "Changing this value will necessitate a restart of all services that depend on Monero's wallet RPC.",
             ),
@@ -94,9 +92,7 @@ export const walletRpcConfigSpec = InputSpec.of({
           }),
           password: Value.text({
             name: i18n('Wallet RPC Password'),
-            description: i18n(
-              "The password for connecting to Monero's wallet RPC interface",
-            ),
+            description: null,
             warning: i18n(
               "Changing this value will necessitate a restart of all services that depend on Monero's wallet RPC.",
             ),

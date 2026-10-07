@@ -11,7 +11,7 @@ import { sdk } from '../sdk'
  */
 export const banListPath = '/home/monero/.bitmonero/ban_list.txt'
 
-const shape = z.object({
+const shape = z.looseObject({
   entries: z.array(z.string()).catch([]),
 })
 
