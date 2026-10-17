@@ -403,6 +403,8 @@ export const main = sdk.setupMain(async ({ effects }) => {
     .addHealthCheck('tor', {
       ready: {
         display: 'Tor',
+        // A failure here waits on the user; retrying every second only floods the log.
+        trigger: sdk.trigger.statusTrigger(30_000, { starting: 1_000 }),
         fn: () => {
           if (!anyTorUse) {
             return {
