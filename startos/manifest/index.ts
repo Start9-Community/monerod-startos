@@ -14,7 +14,11 @@ export const manifest = setupManifest({
   images: {
     monerod: {
       source: {
-        dockerTag: 'ghcr.io/sethforprivacy/simple-monerod:v0.18.5.1',
+        dockerBuild: {
+          buildArgs: {
+            IMAGE: 'ghcr.io/sethforprivacy/simple-monerod:v0.18.5.1',
+          },
+        },
       },
       arch: ['x86_64', 'aarch64'],
     },

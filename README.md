@@ -37,6 +37,8 @@
 
 Two images from the same third-party build, one per daemon.
 
+The root `Dockerfile` upgrades the `monerod` image's CA store, which `block-notify` commands such as `curl` verify against. It is a temporary layer that comes out once upstream ships an image built on a fixed store.
+
 | Property      | Value                                                            |
 | ------------- | ---------------------------------------------------------------- |
 | Images        | `ghcr.io/sethforprivacy/simple-monerod` and its wallet-RPC twin  |
