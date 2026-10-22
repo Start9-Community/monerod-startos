@@ -1,5 +1,6 @@
 import { createHash, randomBytes } from 'node:crypto'
 import { rm } from 'fs/promises'
+import { Agent, IncomingHttpHeaders, request } from 'node:http'
 import { moneroConfFile } from './fileModels/monero.conf'
 import { walletRpcConfFile } from './fileModels/monero-wallet-rpc.conf'
 import { storeJson } from './fileModels/store.json'
@@ -22,7 +23,9 @@ type RpcCreds = { username: string; password: string }
  * set. Both the unrestricted and restricted RPC ports share the same auth
  * config, so the in-container sync-progress health check needs to speak
  * Digest too. This is a minimal RFC 7616 client: one initial request, parse
- * the 401 challenge, then a second request with the computed response.
+ * the 401 challenge, then a second request with the computed response, both
+ * on one socket because monerod only honours a nonce on the connection that
+ * issued it.
  */
 async function digestFetch(
   url: string,
@@ -30,43 +33,78 @@ async function digestFetch(
   body: string,
   contentType: string,
   creds: RpcCreds | null,
-): Promise<Response> {
-  const headers: Record<string, string> = { 'Content-Type': contentType }
-  const res = await fetch(url, { method, headers, body })
-  if (res.status !== 401 || !creds) return res
+): Promise<{ status: number; body: string }> {
+  const agent = new Agent({ keepAlive: true, maxSockets: 1 })
+  const send = (authorization?: string) =>
+    new Promise<{ status: number; headers: IncomingHttpHeaders; body: string }>(
+      (resolve, reject) => {
+        const req = request(
+          url,
+          {
+            method,
+            agent,
+            headers: {
+              'Content-Type': contentType,
+              'Content-Length': Buffer.byteLength(body),
+              ...(authorization ? { Authorization: authorization } : {}),
+            },
+          },
+          (res) => {
+            const chunks: Buffer[] = []
+            res.on('data', (c: Buffer) => chunks.push(c))
+            res.on('end', () =>
+              resolve({
+                status: res.statusCode ?? 0,
+                headers: res.headers,
+                body: Buffer.concat(chunks).toString(),
+              }),
+            )
+            res.on('error', reject)
+          },
+        )
+        req.on('error', reject)
+        req.end(body)
+      },
+    )
 
-  const challenge = parseDigestChallenge(res.headers.get('www-authenticate'))
-  if (!challenge?.realm || !challenge.nonce) return res
+  try {
+    const res = await send()
+    if (res.status !== 401 || !creds) return res
 
-  const uri = new URL(url).pathname || '/'
-  const qop = challenge.qop?.split(',')[0]?.trim() || 'auth'
-  const nc = '00000001'
-  const cnonce = randomBytes(8).toString('hex')
-  const md5 = (s: string) => createHash('md5').update(s).digest('hex')
-  const ha1 = md5(`${creds.username}:${challenge.realm}:${creds.password}`)
-  const ha2 = md5(`${method}:${uri}`)
-  const response = md5(
-    `${ha1}:${challenge.nonce}:${nc}:${cnonce}:${qop}:${ha2}`,
-  )
+    const challenge = parseDigestChallenge(
+      res.headers['www-authenticate'] ?? null,
+    )
+    if (!challenge?.realm || !challenge.nonce) return res
 
-  const parts = [
-    `username="${creds.username}"`,
-    `realm="${challenge.realm}"`,
-    `nonce="${challenge.nonce}"`,
-    `uri="${uri}"`,
-    `qop=${qop}`,
-    `nc=${nc}`,
-    `cnonce="${cnonce}"`,
-    `response="${response}"`,
-  ]
-  if (challenge.opaque) parts.push(`opaque="${challenge.opaque}"`)
-  if (challenge.algorithm) parts.push(`algorithm=${challenge.algorithm}`)
+    const uri = new URL(url).pathname || '/'
+    const qop = challenge.qop?.split(',')[0]?.trim() || 'auth'
+    const nc = '00000001'
+    const cnonce = randomBytes(8).toString('hex')
+    const md5 = (s: string) => createHash('md5').update(s).digest('hex')
+    const ha1 = md5(`${creds.username}:${challenge.realm}:${creds.password}`)
+    const ha2 = md5(`${method}:${uri}`)
+    const response = md5(
+      `${ha1}:${challenge.nonce}:${nc}:${cnonce}:${qop}:${ha2}`,
+    )
 
-  return fetch(url, {
-    method,
-    headers: { ...headers, Authorization: `Digest ${parts.join(', ')}` },
-    body,
-  })
+    const parts = [
+      `username="${creds.username}"`,
+      `realm="${challenge.realm}"`,
+      `nonce="${challenge.nonce}"`,
+      `uri="${uri}"`,
+      `qop=${qop}`,
+      `nc=${nc}`,
+      `cnonce="${cnonce}"`,
+      `response="${response}"`,
+      // monerod offers both MD5 and MD5-sess challenges; ha1 above is plain MD5.
+      'algorithm=MD5',
+    ]
+    if (challenge.opaque) parts.push(`opaque="${challenge.opaque}"`)
+
+    return await send(`Digest ${parts.join(', ')}`)
+  } finally {
+    agent.destroy()
+  }
 }
 
 function parseDigestChallenge(
@@ -359,14 +397,14 @@ export const main = sdk.setupMain(async ({ effects }) => {
               rpcCreds,
             )
 
-            if (!res.ok) {
+            if (res.status !== 200) {
               return {
                 message: `${i18n('Unexpected RPC response')}: ${res.status}`,
                 result: 'failure',
               }
             }
 
-            const info = ((await res.json()) as any)?.result
+            const info = JSON.parse(res.body)?.result
             if (info?.synchronized) {
               return {
                 message: i18n('Monero is fully synced'),
