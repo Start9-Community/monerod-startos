@@ -1,16 +1,17 @@
 import { IMPOSSIBLE, VersionInfo } from '@start9labs/start-sdk'
 
 export const current = VersionInfo.of({
-  version: '0.18.5.1:9',
+  version: '0.18.5.1:10',
   releaseNotes: {
-    en_US: 'A failing Tor health check is retried every 30 seconds.',
+    en_US:
+      'Stops trusting certificates from a compromised certificate authority (eMudhra).',
     es_ES:
-      'Una comprobación de estado de Tor fallida se reintenta cada 30 segundos.',
+      'Deja de confiar en los certificados de una autoridad de certificación comprometida (eMudhra).',
     de_DE:
-      'Eine fehlgeschlagene Tor-Statusprüfung wird alle 30 Sekunden wiederholt.',
-    pl_PL: 'Nieudana kontrola stanu Tor jest ponawiana co 30 sekund.',
-    fr_FR:
-      "Une vérification d'état Tor en échec est relancée toutes les 30 secondes.",
+      'Vertraut Zertifikaten einer kompromittierten Zertifizierungsstelle (eMudhra) nicht mehr.',
+    pl_PL:
+      'Przestaje ufać certyfikatom przejętego urzędu certyfikacji (eMudhra).',
+    fr_FR: `Ne fait plus confiance aux certificats d'une autorité de certification compromise (eMudhra).`,
   },
   migrations: {
     up: async () => {},
