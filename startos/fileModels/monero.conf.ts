@@ -156,8 +156,8 @@ export const fullConfigSpec = InputSpec.of({
     default: null,
     integer: true,
     min: 1,
-    units: i18n('MiB'),
-    footnote: `${i18n('Default')}: 648 MiB. ${i18n('Written to monero.conf as bytes.')}`,
+    units: i18n('MB'),
+    footnote: `${i18n('Default')}: 648 MB. ${i18n('Written to monero.conf as bytes.')}`,
   }),
   zmq: Value.triState({
     name: i18n('ZMQ Interface'),
@@ -445,7 +445,7 @@ function formToFile(
 ): MoneroConf {
   const {
     raw: rawInput,
-    'max-txpool-weight': maxTxpoolMiB,
+    'max-txpool-weight': maxTxpoolMB,
     zmq,
     pruning,
     'block-notify': blockNotify,
@@ -483,7 +483,7 @@ function formToFile(
 
     // Other
     'max-txpool-weight':
-      maxTxpoolMiB != null ? maxTxpoolMiB * 1000000 : undefined,
+      maxTxpoolMB != null ? maxTxpoolMB * 1000000 : undefined,
     'prune-blockchain': pruning == null ? undefined : pruning ? 1 : 0,
     'block-notify': blockNotify ? blockNotify : undefined,
     'no-zmq': zmq == null ? undefined : zmq ? 0 : 1,

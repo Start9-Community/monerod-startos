@@ -105,7 +105,7 @@ const dict = {
   'Attempt to stay perpetually connected to this peer': 80,
   'Maximum TX Pool Size': 81,
   'Keep the unconfirmed transaction memory pool at or below this many megabytes. You may wish to decrease this if you are low on RAM, or increase if you are mining.': 82,
-  MiB: 83,
+  MB: 83,
   'Written to monero.conf as bytes.': 84,
   'ZMQ Interface': 85,
   'Enable the ZeroMQ interface for real-time block and transaction notifications. Required by some services such as block explorers and mining software.': 86,
