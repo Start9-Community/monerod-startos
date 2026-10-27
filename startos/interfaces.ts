@@ -11,9 +11,6 @@ import {
   walletRpcHostId,
   walletRpcInterfaceId,
   walletRpcPort,
-  zmqHostId,
-  zmqInterfaceId,
-  zmqPort,
   zmqPubsubHostId,
   zmqPubsubInterfaceId,
   zmqPubsubPort,
@@ -85,31 +82,9 @@ export const setInterfaces = sdk.setupInterfaces(async ({ effects }) => {
   })
   receipts.push(await walletOrigin.export([wallet]))
 
-  // ZMQ interfaces (only when ZMQ is enabled in config)
+  // ZMQ pub-sub (only when ZMQ is enabled in config)
   const conf = await moneroConfFile.read().once()
   if (conf && conf.zmq) {
-    const zmqMulti = sdk.MultiHost.of(effects, zmqHostId)
-    const zmqOrigin = await zmqMulti.bindPort(zmqPort, {
-      preferredExternalPort: zmqPort,
-      addSsl: null,
-      secure: { ssl: false },
-      protocol: null,
-    })
-    const zmq = sdk.createInterface(effects, {
-      name: i18n('ZeroMQ Interface'),
-      id: zmqInterfaceId,
-      description: i18n(
-        'The ZeroMQ interface for block and transaction notifications',
-      ),
-      type: 'api',
-      masked: false,
-      schemeOverride: null,
-      username: null,
-      path: '',
-      query: {},
-    })
-    receipts.push(await zmqOrigin.export([zmq]))
-
     const zmqPubMulti = sdk.MultiHost.of(effects, zmqPubsubHostId)
     const zmqPubOrigin = await zmqPubMulti.bindPort(zmqPubsubPort, {
       preferredExternalPort: zmqPubsubPort,

@@ -33,8 +33,6 @@ const dict = {
   'The restricted RPC interface for wallet connections': 23,
   'Wallet RPC Interface': 24,
   'The wallet RPC interface for server-side wallet management': 25,
-  'ZeroMQ Interface': 26,
-  'The ZeroMQ interface for block and transaction notifications': 27,
   'ZeroMQ Pub-Sub Interface': 28,
   'The ZeroMQ publish-subscribe interface': 29,
 
