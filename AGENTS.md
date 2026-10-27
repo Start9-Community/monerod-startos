@@ -36,4 +36,5 @@ verified, tried, and decided belongs in the commit message and the PR body.
 
 - **`startos/utils.ts`'s host-id and interface-id constants, the manifest `id`/volumes, the `autoconfig` action and its input keys, and the `monerod` daemon id are a public API.** btcpayserver imports the first three and gates on the daemon as a health check. Renaming one is a cross-repo change — update the dependent in the same PR.
 - **Never model `proxy`, `tx-proxy`, `anonymous-inbound` or `pad-transactions` as `monero.conf` keys** — they need values that exist only at start, so `main.ts` passes them as flags.
+- **Keep `monero.conf` on its verbatim `FileHelper.raw` writer, never `FileHelper.ini`** — the `ini` writer quotes any value containing `=` or starting with `[`, and monerod keeps the quotes.
 - **Keep `nocow` in the `monerod` daemon's `requires`** — `chattr +C` takes only on directories and empty files, so it has to run before the database is opened.
