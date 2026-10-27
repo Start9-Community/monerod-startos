@@ -1,23 +1,35 @@
-import { IMPOSSIBLE, VersionInfo } from '@start9labs/start-sdk'
-import { sdk } from '../sdk'
+import { FileHelper, IMPOSSIBLE, VersionInfo, z } from '@start9labs/start-sdk'
+import { moneroConfFile, toMoneroConf } from '../fileModels/monero.conf'
 
 export const current = VersionInfo.of({
-  version: '0.18.5.4:1',
+  version: '0.18.5.4:2',
   releaseNotes: {
     en_US:
-      'Monero starts with ZMQ enabled. The ZeroMQ interface (port 18082) is no longer exported; block and transaction notifications remain on the ZeroMQ Pub-Sub interface (port 18083). Any domain or address setting on the ZeroMQ interface is removed with it.',
+      'Monero now runs block-notify commands that contain `=`, such as the one BTCPay Server sets, and accepts peers added by IPv6 address.',
     es_ES:
-      'Monero arranca con ZMQ activado. La interfaz ZeroMQ (puerto 18082) ya no se exporta; las notificaciones de bloques y transacciones siguen disponibles en la interfaz de publicación-suscripción ZeroMQ (puerto 18083). Cualquier dominio o ajuste de dirección de la interfaz ZeroMQ se elimina con ella.',
+      'Monero ahora ejecuta los comandos block-notify que contienen `=`, como el que configura BTCPay Server, y acepta los pares añadidos por dirección IPv6.',
     de_DE:
-      'Monero startet mit aktiviertem ZMQ. Die ZeroMQ-Schnittstelle (Port 18082) wird nicht mehr exportiert; Block- und Transaktionsbenachrichtigungen bleiben über die ZeroMQ-Pub-Sub-Schnittstelle (Port 18083) verfügbar. Domains und Adresseinstellungen der ZeroMQ-Schnittstelle werden mit ihr entfernt.',
+      'Monero führt jetzt Block-Notify-Befehle aus, die `=` enthalten, etwa den von BTCPay Server gesetzten, und akzeptiert Peers, die per IPv6-Adresse hinzugefügt wurden.',
     pl_PL:
-      'Monero uruchamia się z włączonym ZMQ. Interfejs ZeroMQ (port 18082) nie jest już eksportowany; powiadomienia o blokach i transakcjach pozostają dostępne w interfejsie publikacji-subskrypcji ZeroMQ (port 18083). Domeny i ustawienia adresów interfejsu ZeroMQ są usuwane razem z nim.',
+      'Monero uruchamia teraz polecenia block-notify zawierające `=`, takie jak to ustawiane przez BTCPay Server, i akceptuje peery dodane przez adres IPv6.',
     fr_FR:
-      "Monero démarre avec ZMQ activé. L'interface ZeroMQ (port 18082) n'est plus exportée ; les notifications de blocs et de transactions restent disponibles sur l'interface de publication-abonnement ZeroMQ (port 18083). Les domaines et paramètres d'adresse de l'interface ZeroMQ sont supprimés avec elle.",
+      'Monero exécute désormais les commandes block-notify contenant `=`, comme celle que définit BTCPay Server, et accepte les pairs ajoutés par adresse IPv6.',
   },
   migrations: {
     up: async ({ effects }) => {
-      await sdk.MultiHost.of(effects, 'zmq').retire()
+      // Earlier releases wrote monero.conf with FileHelper.ini's quoting and escapes.
+      const conf = await FileHelper.ini(
+        moneroConfFile.path,
+        z.looseObject({}),
+        { bracketedArray: false },
+      )
+        .read()
+        .once()
+      if (conf)
+        await FileHelper.string(moneroConfFile.path).write(
+          effects,
+          toMoneroConf(conf),
+        )
     },
     down: IMPOSSIBLE,
   },

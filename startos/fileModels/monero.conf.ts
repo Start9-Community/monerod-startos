@@ -178,11 +178,17 @@ export const fullConfigSpec = InputSpec.of({
   'block-notify': Value.text({
     name: i18n('Block Notify Command'),
     description: i18n(
-      'Shell command monerod runs on every new block. The token %s is replaced by the block hash. Leave empty to disable. Example: /usr/bin/curl -so /dev/null https://example.com/notify/%s',
+      'Command monerod runs on every new block. It runs without a shell, so arguments are split on spaces and quotes are passed on as-is. The token %s is replaced by the block hash. Leave empty to disable. Example: /usr/bin/curl -so /dev/null https://example.com/notify/%s',
     ),
     required: false,
     default: null,
     placeholder: '/usr/bin/curl -so /dev/null https://example.com/notify/%s',
+    patterns: [
+      {
+        regex: '^[^#\\r\\n]*$',
+        description: i18n('Must be a single line and cannot contain #'),
+      },
+    ],
   }),
 
   // ── Networking ──
@@ -328,7 +334,7 @@ export const fullConfigSpec = InputSpec.of({
   }),
 })
 
-// ── INI → Form (onRead) ────────────────────────────────────────────
+// ── INI → Form ──────────────────────────────────────────────────────
 
 function toArray(val: string | string[] | undefined): string[] {
   if (!val) return []
@@ -338,7 +344,7 @@ function toArray(val: string | string[] | undefined): string[] {
 function parsePeerString(
   s: string,
 ): { hostname: string; port: number | null } | null {
-  const [hostname, portStr] = s.split(':')
+  const [, hostname, portStr] = s.match(/^(\[[^\]]*\]|[^:]*)(?::(.*))?$/) ?? []
   if (!hostname) return null
   const port = portStr ? Number(portStr) : NaN
   return { hostname, port: Number.isFinite(port) ? port : null }
@@ -432,7 +438,7 @@ function fileToForm(
   }
 }
 
-// ── Form → INI (onWrite) ───────────────────────────────────────────
+// ── Form → INI ──────────────────────────────────────────────────────
 
 function formToFile(
   input: T.DeepPartial<typeof fullConfigSpec._TYPE>,
@@ -451,13 +457,13 @@ function formToFile(
   } = input
 
   // The shape's z.literal(X).catch(X) entries are the single source of truth
-  // for enforced values. But FileHelper.ini validates through the InputSpec's
+  // for enforced values. But moneroConfFile validates through the InputSpec's
   // partialValidator — which permits `raw` to be undefined — so on the first
   // install seed (moneroConfFile.merge(effects, {})) `rawInput` arrives
   // undefined and `...raw` spreads nothing. Parsing through `shape` here
   // triggers each .catch() default exactly once, without duplicating any
   // literal. Idempotent on subsequent writes where `rawInput` is already
-  // a fully-populated conf from onRead.
+  // a fully-populated conf from fileToForm.
   const raw = shape.parse(rawInput ?? {})
 
   const peerAddr = (p: { hostname?: string; port?: number | null }) =>
@@ -507,36 +513,39 @@ function formToFile(
   } as MoneroConf
 }
 
-// ── Stringify primitives for INI output ─────────────────────────────
+// ── monero.conf text ────────────────────────────────────────────────
 
-function stringifyPrimitives(a: unknown): any {
-  if (a && typeof a === 'object') {
-    if (Array.isArray(a)) return a.map(stringifyPrimitives)
-    return Object.fromEntries(
-      Object.entries(a).map(([k, v]) => [k, stringifyPrimitives(v)]),
-    )
-  } else if (typeof a === 'boolean') {
-    return a ? 1 : 0
+// monerod takes a value verbatim from the first = to the end of the line or the first #.
+function fromMoneroConf(text: string) {
+  const conf: Record<string, string | string[]> = {}
+  for (const line of text.split('\n')) {
+    const [entry] = line.split('#')
+    const eq = entry.indexOf('=')
+    if (eq === -1) continue
+    const key = entry.slice(0, eq).trim()
+    const value = entry.slice(eq + 1).trim()
+    conf[key] = Object.hasOwn(conf, key) ? [conf[key], value].flat() : value
   }
-  return a
+  return conf
+}
+
+export function toMoneroConf(conf: Record<string, unknown>) {
+  let text = ''
+  for (const [key, value] of Object.entries(conf)) {
+    if (value === undefined) continue
+    for (const v of [value].flat()) text += `${key}=${String(v)}\n`
+  }
+  return text
 }
 
 // ── File helper ─────────────────────────────────────────────────────
 
-export const moneroConfFile = FileHelper.ini(
+export const moneroConfFile = FileHelper.raw(
   {
     base: sdk.volumes.monerod,
     subpath: 'monero.conf',
   },
-  fullConfigSpec.partialValidator,
-  { bracketedArray: false },
-  {
-    onRead: (a) => {
-      const base = shape.parse(a)
-      return fileToForm(base)
-    },
-    onWrite: (a) => {
-      return stringifyPrimitives(formToFile(a))
-    },
-  },
+  (form) => toMoneroConf(formToFile(form)),
+  (text) => fileToForm(shape.parse(fromMoneroConf(text))),
+  (data: unknown) => fullConfigSpec.partialValidator.parse(data),
 )

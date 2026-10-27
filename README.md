@@ -89,7 +89,7 @@ Four models, and the interesting part is what they refuse to hold.
 
 | File                     | Format | Modelled                | Written by |
 | ------------------------ | ------ | ----------------------- | ---------- |
-| `monero.conf`            | INI    | Yes — `FileHelper.ini`  | Actions    |
+| `monero.conf`            | INI    | Yes — `FileHelper.raw`  | Actions    |
 | `monero-wallet-rpc.conf` | INI    | Yes — `FileHelper.ini`  | Actions    |
 | `store.json`             | JSON   | Yes — `FileHelper.json` | Actions    |
 | `ban_list.txt`           | text   | Yes — `FileHelper.raw`  | An action  |
@@ -101,6 +101,8 @@ Each config file splits three ways:
 - **Enforced _absent_.** The proxy, transaction proxy, anonymous-inbound and transaction-padding keys are forced to `undefined`, so writing them into the file does nothing. They are passed as command-line flags instead, composed at start from the store.
 
 **That last group is the design of the package.** Tor settings depend on values that only exist at start — the live address of the Tor service, and whether the Peer interface has an onion address yet — so the file records the user's _intent_ and the flags are computed from it each time.
+
+**`monero.conf` values are written verbatim.** monerod takes everything after the first `=` as the value, quotes and backslashes included, up to the end of the line or a `#`. Nothing is quoted or escaped, and the block-notify command is refused if it contains `#` or a line break.
 
 The ban list is a plain text file with its own model: one address or subnet per line, comments stripped on read, and seeded once from the list bundled in the image.
 
@@ -191,6 +193,7 @@ The credentials for the wallet RPC server.
 Mempool size, ZMQ, pruning, and the block-notify command.
 
 - **Pruning saves roughly two thirds of the disk**, and enabling it on an already-synced node does not shrink the existing database — that needs a resync.
+- **The block-notify command runs without a shell.** monerod splits it on spaces, passes quotes through as literal characters, and replaces `%s` with the block hash.
 
 ### Maintenance
 
@@ -270,7 +273,7 @@ volumes:
   monerod: /home/monero/.bitmonero
   wallet: /home/monero/wallet
 file_models:
-  - monero.conf # ini; enforced literals + keys forced undefined because they are CLI args
+  - monero.conf # raw key=value, verbatim; enforced literals + keys forced undefined because they are CLI args
   - monero-wallet-rpc.conf # ini; disable-rpc-login forced undefined, added as a flag instead
   - store.json # anonymity intents, dbSalvage and resync flags
   - ban_list.txt # raw; seeded from the image's bundled list
