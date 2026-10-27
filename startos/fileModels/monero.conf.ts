@@ -481,7 +481,7 @@ function formToFile(
     'prune-blockchain': pruning == null ? undefined : pruning ? 1 : 0,
     'block-notify': blockNotify ? blockNotify : undefined,
     'no-zmq': zmq == null ? undefined : zmq ? 0 : 1,
-    'zmq-rpc-bind-ip': zmq === true ? '0.0.0.0' : undefined,
+    'zmq-rpc-bind-ip': zmq === true ? '127.0.0.1' : undefined,
     'zmq-rpc-bind-port': zmq === true ? zmqPort : undefined,
     'zmq-pub': zmq === true ? `tcp://0.0.0.0:${zmqPubsubPort}` : undefined,
 

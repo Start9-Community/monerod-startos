@@ -120,21 +120,20 @@ Enabling any Tor intent adds the dependency; turning them all off removes it.
 
 ## Network Access and Interfaces
 
-Up to five interfaces, two of which exist only when ZMQ is enabled.
+Up to four interfaces, one of which exists only when ZMQ is enabled.
 
 | Interface      | Id               | Type | Port  | Description                         |
 | -------------- | ---------------- | ---- | ----- | ----------------------------------- |
 | Peer           | `peer`           | p2p  | 18080 | The peer-to-peer network            |
 | RPC            | `rpc-restricted` | api  | 18089 | The restricted RPC, for wallets     |
 | Wallet RPC     | `rpc-wallet`     | api  | 28088 | Server-side wallet management       |
-| ZeroMQ         | `zmq`            | api  | 18082 | Block and transaction notifications |
-| ZeroMQ Pub-Sub | `zmq-pubsub`     | api  | 18083 | The publish-subscribe stream        |
+| ZeroMQ Pub-Sub | `zmq-pubsub`     | api  | 18083 | Block and transaction notifications |
 
 The peer and ZeroMQ bindings are raw TCP with the external port preserved; the two RPC bindings are HTTP.
 
 **The unrestricted RPC port is not exported.** monerod listens on it inside the service, and nothing publishes an address for it — the restricted port is what wallets and dependents are given.
 
-**The ZeroMQ pair is conditional.** They are exported only while ZMQ is enabled in the configuration, so enabling it and restarting is what makes them appear.
+**The ZeroMQ Pub-Sub interface is conditional.** It is exported only while ZMQ is enabled in the configuration, so enabling it and restarting is what makes it appear. The ZeroMQ RPC (18082) listens on localhost inside the service and is never exported.
 
 **The Wallet RPC is exported and, by default, unauthenticated.** Credentials are off out of the box, which means anyone who can reach that address can create and open wallets on this server and spend from them. Set wallet RPC credentials before exposing it anywhere, and treat the address as sensitive regardless.
 
@@ -251,7 +250,7 @@ Everything that cannot be recovered from the network is kept: the **wallet volum
 5. **Several config keys cannot be set in the file** — the proxy and inbound flags are computed at start and stripped from the file on read.
 6. **Enabling pruning does not shrink an existing database**; only a resync does.
 7. **The unrestricted RPC has no exported address.**
-8. **ZeroMQ interfaces only exist while ZMQ is enabled**, and appear after a restart.
+8. **The ZeroMQ Pub-Sub interface only exists while ZMQ is enabled**, and appears after a restart; the ZeroMQ RPC is never exported.
 
 ---
 
@@ -282,9 +281,8 @@ interfaces:
   peer: { type: p2p, port: 18080 }
   rpc-restricted: { type: api, port: 18089 }
   rpc-wallet: { type: api, port: 28088 } # unauthenticated by default
-  zmq: { type: api, port: 18082 } # only while ZMQ is enabled
   zmq-pubsub: { type: api, port: 18083 } # only while ZMQ is enabled
-  # the unrestricted RPC (18081) is bound in-container but never exported
+  # the unrestricted RPC (18081) and ZeroMQ RPC (18082) are bound in-container but never exported
 actions:
   - peers-config
   - anonymity-config

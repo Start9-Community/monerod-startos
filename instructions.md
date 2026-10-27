@@ -10,7 +10,7 @@
 - A **Wallet RPC Interface** running `monero-wallet-rpc` for server-side wallet management — create wallets, send and receive, query balances.
 - A **Peer Interface** for P2P block and transaction exchange.
 - An **RPC Interface** exposing the restricted RPC endpoint that external wallets connect to.
-- Optional **ZeroMQ Interface** and **ZeroMQ Pub-Sub Interface** for real-time block and transaction notifications (off by default).
+- An optional **ZeroMQ Pub-Sub Interface** for real-time block and transaction notifications, as used by P2Pool (off by default).
 - Optional Tor outbound proxy, transaction broadcast over Tor, and inbound `.onion` peering — all driven from a single action.
 
 The node starts on clearnet immediately after install; there is no setup wizard.
@@ -39,7 +39,7 @@ Configuration is split across several actions so each one is small enough to fit
 - **Edit Ban List** — manage the list of IP addresses and IPv4 CIDR subnets that `monerod` bans at startup. One entry per line.
 - **Daemon RPC Settings** — enable or disable username/password authentication on the restricted RPC. When enabled, the Wallet RPC's daemon login is kept in sync automatically.
 - **Wallet RPC Settings** — enable or disable username/password authentication on `monero-wallet-rpc`.
-- **Other Settings** — mempool size cap, toggle the ZeroMQ interfaces, enable blockchain pruning, and a free-text block-notify command (use `%s` as the block-hash placeholder).
+- **Other Settings** — mempool size cap, toggle ZeroMQ, enable blockchain pruning, and a free-text block-notify command (use `%s` as the block-hash placeholder).
 - **DB Salvage** (Maintenance) — runs `monerod` with `--db-salvage` on its next start and restarts it. Run only if `monerod` is failing to start due to database corruption.
 - **Resync Blockchain** (Maintenance) — deletes the blockchain database and re-downloads it from the network. For pruned nodes this is a full re-download from genesis.
 
