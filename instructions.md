@@ -43,6 +43,10 @@ Configuration is split across several actions so each one is small enough to fit
 - **DB Salvage** (Maintenance) — runs `monerod` with `--db-salvage` on its next start and restarts it. Run only if `monerod` is failing to start due to database corruption.
 - **Resync Blockchain** (Maintenance) — deletes the blockchain database and re-downloads it from the network. For pruned nodes this is a full re-download from genesis.
 
+### Outbound traffic
+
+If you publish the **Peer** interface through StartTunnel to keep your home IP private, send Monero's outbound traffic through that tunnel too. Connections Monero opens itself to other Monero nodes otherwise leave through your home router, so those peers see your home IP. While Monero sends its peer connections through Tor, this doesn't apply. If you use the tunnel for another reason, such as a port your router can't forward, there is nothing to change.
+
 ## Limitations
 
 - **Pruning is one-way.** Once enabled in Other Settings, the blockchain cannot be un-pruned without running Resync Blockchain (a full re-download).
