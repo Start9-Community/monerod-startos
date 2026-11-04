@@ -36,5 +36,3 @@ Only bump once both images have published the new `v<version>` tag — the packa
 - `startos/manifest/index.ts` — update both image references to the new version:
   - `images.monerod.source.dockerBuild.buildArgs.IMAGE` → `ghcr.io/sethforprivacy/simple-monerod:v<new version>`
   - `images['wallet-rpc'].source.dockerTag` → `ghcr.io/sethforprivacy/simple-monero-wallet-rpc:v<new version>`
-
-Then bump `version` and `releaseNotes` in `startos/versions/current.ts` per the standard packaging conventions.
