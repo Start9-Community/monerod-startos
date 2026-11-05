@@ -1,36 +1,21 @@
-import { FileHelper, IMPOSSIBLE, VersionInfo, z } from '@start9labs/start-sdk'
-import { moneroConfFile, toMoneroConf } from '../fileModels/monero.conf'
+import { IMPOSSIBLE, VersionInfo } from '@start9labs/start-sdk'
 
 export const current = VersionInfo.of({
-  version: '0.18.5.4:2',
+  version: '0.18.5.4:3',
   releaseNotes: {
     en_US:
-      'Monero now runs block-notify commands that contain `=`, such as the one BTCPay Server sets, and accepts peers added by IPv6 address.',
+      'Requires StartOS 0.4.1 or later. Fixes memory use growing while the service runs.',
     es_ES:
-      'Monero ahora ejecuta los comandos block-notify que contienen `=`, como el que configura BTCPay Server, y acepta los pares añadidos por dirección IPv6.',
+      'Requiere StartOS 0.4.1 o posterior. Corrige el aumento del uso de memoria mientras el servicio está en ejecución.',
     de_DE:
-      'Monero führt jetzt Block-Notify-Befehle aus, die `=` enthalten, etwa den von BTCPay Server gesetzten, und akzeptiert Peers, die per IPv6-Adresse hinzugefügt wurden.',
+      'Erfordert StartOS 0.4.1 oder neuer. Behebt einen während der Laufzeit des Dienstes ansteigenden Speicherverbrauch.',
     pl_PL:
-      'Monero uruchamia teraz polecenia block-notify zawierające `=`, takie jak to ustawiane przez BTCPay Server, i akceptuje peery dodane przez adres IPv6.',
+      'Wymaga StartOS 0.4.1 lub nowszego. Naprawia wzrost zużycia pamięci podczas działania usługi.',
     fr_FR:
-      'Monero exécute désormais les commandes block-notify contenant `=`, comme celle que définit BTCPay Server, et accepte les pairs ajoutés par adresse IPv6.',
+      "Nécessite StartOS 0.4.1 ou une version ultérieure. Corrige l'augmentation de la consommation de mémoire pendant le fonctionnement du service.",
   },
   migrations: {
-    up: async ({ effects }) => {
-      // Earlier releases wrote monero.conf with FileHelper.ini's quoting and escapes.
-      const conf = await FileHelper.ini(
-        moneroConfFile.path,
-        z.looseObject({}),
-        { bracketedArray: false },
-      )
-        .read()
-        .once()
-      if (conf)
-        await FileHelper.string(moneroConfFile.path).write(
-          effects,
-          toMoneroConf(conf),
-        )
-    },
+    up: async () => {},
     down: IMPOSSIBLE,
   },
 })
