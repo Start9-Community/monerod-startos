@@ -137,6 +137,8 @@ The peer and ZeroMQ bindings are raw TCP with the external port preserved; the t
 
 **The ZeroMQ Pub-Sub interface is conditional.** It is exported only while ZMQ is enabled in the configuration, so enabling it and restarting is what makes it appear. The ZeroMQ RPC (18082) listens on localhost inside the service and is never exported.
 
+**ZeroMQ Pub-Sub listens on IPv4 only:** monerod never enables libzmq's IPv6 support, so a `tcp://[::]` bind fails. StartOS still lists the interface's IPv6 addresses, and connections to them are refused — subscribers use an IPv4 address.
+
 **The Wallet RPC is exported and, by default, unauthenticated.** Credentials are off out of the box, which means anyone who can reach that address can create and open wallets on this server and spend from them. Set wallet RPC credentials before exposing it anywhere, and treat the address as sensitive regardless.
 
 Daemon RPC credentials are separate and also off by default. Setting them applies to both RPC ports at once, and the package's own sync check authenticates with them over HTTP Digest.
