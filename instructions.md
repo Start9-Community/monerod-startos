@@ -28,7 +28,9 @@ The node starts on clearnet immediately after install; there is no setup wizard.
 
 External wallets (Anonero, Cake, Feather, Monero GUI, Monerujo, etc.) connect to the **RPC Interface** — this is the restricted RPC endpoint on port `18089`. Use the LAN or `.onion` address shown on the interface panel. The full unrestricted RPC is not exposed externally.
 
-The **Wallet RPC Interface** runs `monero-wallet-rpc` for programmatic server-side wallet operations and is typically consumed by other services rather than browsed directly.
+The **Wallet RPC Interface** runs `monero-wallet-rpc` for programmatic server-side wallet operations and is typically consumed by other services rather than browsed directly. Every client must log in with the username and password generated at install; run **Wallet RPC Credentials** to view and copy them.
+
+> **Warning:** the Wallet RPC can create and open wallets on this server, reveal their seeds, and spend from them. Anyone who has its credentials and can reach its address has that control. Keep the credentials private, and add a Tor or public address to this interface only if you need one.
 
 ### Actions
 
@@ -38,7 +40,8 @@ Configuration is split across several actions so each one is small enough to fit
 - **Anonymity Networks** — route outbound traffic via Tor, broadcast locally-originated transactions over Tor, advertise an inbound `.onion` listener, tune Dandelion++ noise, and pad transactions. Requires Tor to be installed when any intent is on.
 - **Edit Ban List** — manage the list of IP addresses and IPv4 CIDR subnets that `monerod` bans at startup. One entry per line.
 - **Daemon RPC Settings** — enable or disable username/password authentication on the restricted RPC. When enabled, the Wallet RPC's daemon login is kept in sync automatically.
-- **Wallet RPC Settings** — enable or disable username/password authentication on `monero-wallet-rpc`.
+- **Wallet RPC Settings** — change the username and password that `monero-wallet-rpc` requires.
+- **Wallet RPC Credentials** — show the current Wallet RPC username and password.
 - **Other Settings** — mempool size cap, toggle ZeroMQ, enable blockchain pruning, and a free-text block-notify command (use `%s` as the block-hash placeholder).
 - **DB Salvage** (Maintenance) — runs `monerod` with `--db-salvage` on its next start and restarts it. Run only if `monerod` is failing to start due to database corruption.
 - **Resync Blockchain** (Maintenance) — deletes the blockchain database and re-downloads it from the network. For pruned nodes this is a full re-download from genesis.

@@ -1,4 +1,4 @@
-import { FileHelper, z } from '@start9labs/start-sdk'
+import { FileHelper, utils, z } from '@start9labs/start-sdk'
 import { i18n } from '../i18n'
 import { sdk } from '../sdk'
 import { rpcRestrictedPort, walletRpcPort } from '../utils'
@@ -24,11 +24,7 @@ const shape = z.looseObject({
   // Conditional
   'rpc-login': iniString,
   'daemon-login': iniString,
-  // Enforced undefined. disable-rpc-login is mutually exclusive with
-  // rpc-login; main.ts adds it as a CLI flag when rpc-login is unset so the
-  // conf file is never the source of truth. Forcing undefined here strips
-  // any legacy value on the next read/write — the shape is loose, so we
-  // have to explicitly null this out instead of omitting.
+  // Enforced undefined: the shape is loose, so a legacy value would otherwise survive.
   'disable-rpc-login': z.undefined().catch(undefined),
 })
 
@@ -56,7 +52,7 @@ export const walletRpcConfFile = FileHelper.ini(
 
 // ── InputSpec & read helper ─────────────────────────────────────────
 
-const { InputSpec, Value, Variants } = sdk
+const { InputSpec, Value } = sdk
 
 const alphanumUnderscore = [
   {
@@ -66,68 +62,39 @@ const alphanumUnderscore = [
 ]
 
 export const walletRpcConfigSpec = InputSpec.of({
-  'wallet-rpc-credentials': Value.union({
-    name: i18n('Wallet RPC Credentials'),
-    description: i18n(
-      'Whether the wallet RPC requires a username and password.\n- Disabled: any client that can reach the wallet RPC can use it.\n- Enabled: every client must authenticate with the username and password set here.',
+  username: Value.text({
+    name: i18n('Wallet RPC Username'),
+    description: null,
+    warning: i18n(
+      "Changing this value will necessitate a restart of all services that depend on Monero's wallet RPC.",
     ),
-    default: 'disabled',
-    variants: Variants.of({
-      disabled: {
-        name: i18n('Disabled'),
-        spec: InputSpec.of({}),
-      },
-      enabled: {
-        name: i18n('Enabled'),
-        spec: InputSpec.of({
-          username: Value.text({
-            name: i18n('Wallet RPC Username'),
-            description: null,
-            warning: i18n(
-              "Changing this value will necessitate a restart of all services that depend on Monero's wallet RPC.",
-            ),
-            required: true,
-            default: 'monero_wallet',
-            patterns: alphanumUnderscore,
-          }),
-          password: Value.text({
-            name: i18n('Wallet RPC Password'),
-            description: null,
-            warning: i18n(
-              "Changing this value will necessitate a restart of all services that depend on Monero's wallet RPC.",
-            ),
-            required: true,
-            default: { charset: 'a-z,A-Z,0-9', len: 22 },
-            patterns: alphanumUnderscore,
-            masked: true,
-            generate: { charset: 'a-z,A-Z,0-9', len: 22 },
-          }),
-        }),
-      },
-    }),
+    required: true,
+    default: 'monero_wallet',
+    patterns: alphanumUnderscore,
+  }),
+  password: Value.text({
+    name: i18n('Wallet RPC Password'),
+    description: null,
+    warning: i18n(
+      "Changing this value will necessitate a restart of all services that depend on Monero's wallet RPC.",
+    ),
+    required: true,
+    default: { charset: 'a-z,A-Z,0-9', len: 22 },
+    patterns: alphanumUnderscore,
+    masked: true,
+    generate: { charset: 'a-z,A-Z,0-9', len: 22 },
   }),
 })
 
-export async function readWalletRpcForForm(effects: any) {
-  const conf = await walletRpcConfFile.read().const(effects)
-  if (!conf?.['rpc-login']) {
-    return {
-      'wallet-rpc-credentials': { selection: 'disabled' as const, value: {} },
-    }
-  }
-  const colonIdx = conf['rpc-login'].indexOf(':')
-  if (colonIdx <= 0) {
-    return {
-      'wallet-rpc-credentials': { selection: 'disabled' as const, value: {} },
-    }
-  }
-  return {
-    'wallet-rpc-credentials': {
-      selection: 'enabled' as const,
-      value: {
-        username: conf['rpc-login'].substring(0, colonIdx),
-        password: conf['rpc-login'].substring(colonIdx + 1),
-      },
-    },
-  }
+export const generateWalletRpcLogin = () =>
+  `monero_wallet:${utils.getDefaultString({ charset: 'a-z,A-Z,0-9', len: 22 })}`
+
+export const parseWalletRpcLogin = (login: string | null | undefined) => {
+  const colonIdx = login?.indexOf(':') ?? -1
+  return login && colonIdx > 0
+    ? {
+        username: login.substring(0, colonIdx),
+        password: login.substring(colonIdx + 1),
+      }
+    : null
 }

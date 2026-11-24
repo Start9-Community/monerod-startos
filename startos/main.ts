@@ -133,7 +133,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
   // changes. The form-shape values pulled out here drive auth and CLI args
   // below; restarts are automatic because const() tracks them as deps.
   const monConf = await moneroConfFile.read().const(effects)
-  const walletConf = await walletRpcConfFile.read().const(effects)
+  await walletRpcConfFile.read().const(effects)
 
   // Daemon RPC credentials — used to talk to monerod from the in-container
   // sync-progress health check via HTTP Digest. Null when creds are off.
@@ -145,11 +145,6 @@ export const main = sdk.setupMain(async ({ effects }) => {
     if (!username || !password) return null
     return { username, password }
   })()
-
-  // wallet-rpc daemon refuses to start without either --rpc-login or
-  // --disable-rpc-login. The user's choice lives in monero-wallet-rpc.conf's
-  // rpc-login key; presence/absence here decides which CLI flag to add.
-  const walletDisableRpcLogin = !walletConf?.['rpc-login']
 
   // Anonymity intents live in store.json and drive the Tor CLI args below.
   // init seeds store.json, so the read is guaranteed non-null here.
@@ -367,7 +362,6 @@ export const main = sdk.setupMain(async ({ effects }) => {
           '--non-interactive',
           '--config-file',
           '/home/monero/wallet/monero-wallet-rpc.conf',
-          ...(walletDisableRpcLogin ? ['--disable-rpc-login'] : []),
         ],
       },
       ready: {

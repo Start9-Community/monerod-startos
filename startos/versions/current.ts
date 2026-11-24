@@ -1,21 +1,32 @@
 import { IMPOSSIBLE, VersionInfo } from '@start9labs/start-sdk'
+import {
+  generateWalletRpcLogin,
+  parseWalletRpcLogin,
+  walletRpcConfFile,
+} from '../fileModels/monero-wallet-rpc.conf'
 
 export const current = VersionInfo.of({
-  version: '0.18.5.4:4',
+  version: '0.18.5.4:5',
   releaseNotes: {
     en_US:
-      'Requires StartOS 0.4.1 or later. Peers can now connect to your node over its IPv6 addresses.',
+      'The Wallet RPC now always requires a username and password. If you had not set them, new ones have been generated: run the **Wallet RPC Credentials** action to view them, and enter them in every client that connects to the Wallet RPC Interface. You can change them in **Wallet RPC Settings**.',
     es_ES:
-      'Requiere StartOS 0.4.1 o posterior. Los pares ahora pueden conectarse a tu nodo a través de sus direcciones IPv6.',
+      'El RPC del monedero ahora siempre requiere un nombre de usuario y una contraseña. Si no los había configurado, se han generado unos nuevos: ejecute la acción **Credenciales RPC del monedero** para verlos e introdúzcalos en todos los clientes que se conecten a la interfaz RPC del monedero. Puede cambiarlos en **Ajustes RPC del monedero**.',
     de_DE:
-      'Erfordert StartOS 0.4.1 oder neuer. Peers können sich jetzt über die IPv6-Adressen deines Knotens mit ihm verbinden.',
+      'Das Wallet-RPC verlangt jetzt immer einen Benutzernamen und ein Passwort. Falls Sie keine festgelegt hatten, wurden neue erzeugt: Führen Sie die Aktion **Wallet-RPC-Anmeldeinformationen** aus, um sie anzuzeigen, und tragen Sie sie in jedem Client ein, der sich mit der Wallet-RPC-Schnittstelle verbindet. Ändern können Sie sie unter **Wallet-RPC-Einstellungen**.',
     pl_PL:
-      'Wymaga StartOS 0.4.1 lub nowszego. Peery mogą teraz łączyć się z twoim węzłem przez jego adresy IPv6.',
+      'RPC portfela wymaga teraz zawsze nazwy użytkownika i hasła. Jeśli ich nie ustawiono, wygenerowano nowe: uruchom akcję **Poświadczenia RPC portfela**, aby je wyświetlić, i wprowadź je w każdym kliencie łączącym się z interfejsem RPC portfela. Możesz je zmienić w **Ustawieniach RPC portfela**.',
     fr_FR:
-      'Nécessite StartOS 0.4.1 ou une version ultérieure. Les pairs peuvent désormais se connecter à votre nœud via ses adresses IPv6.',
+      "Le RPC du portefeuille exige désormais toujours un nom d'utilisateur et un mot de passe. Si vous ne les aviez pas définis, de nouveaux identifiants ont été générés : lancez l'action **Identifiants RPC du portefeuille** pour les afficher, puis saisissez-les dans chaque client qui se connecte à l'interface RPC du portefeuille. Vous pouvez les modifier dans **Paramètres RPC du portefeuille**.",
   },
   migrations: {
-    up: async () => {},
+    up: async ({ effects }) => {
+      const login = await walletRpcConfFile.read((c) => c['rpc-login']).once()
+      if (!parseWalletRpcLogin(login))
+        await walletRpcConfFile.merge(effects, {
+          'rpc-login': generateWalletRpcLogin(),
+        })
+    },
     down: IMPOSSIBLE,
   },
 })

@@ -139,13 +139,13 @@ The peer and ZeroMQ bindings are raw TCP with the external port preserved; the t
 
 **ZeroMQ Pub-Sub listens on IPv4 only:** monerod never enables libzmq's IPv6 support, so a `tcp://[::]` bind fails. StartOS still lists the interface's IPv6 addresses, and connections to them are refused — subscribers use an IPv4 address.
 
-**The Wallet RPC is exported and, by default, unauthenticated.** Credentials are off out of the box, which means anyone who can reach that address can create and open wallets on this server and spend from them. Set wallet RPC credentials before exposing it anywhere, and treat the address as sensitive regardless.
+**The Wallet RPC is exported and always requires a login.** Install generates a random username and password, and the login cannot be turned off. Anyone holding the credentials who can reach the address can create and open wallets on this server, read their seeds and spend from them, so treat both as sensitive.
 
 Daemon RPC credentials are separate and also off by default. Setting them applies to both RPC ports at once, and the package's own sync check authenticates with them over HTTP Digest.
 
 ## Installation and First-Run Flow
 
-Install seeds both configuration files with their enforced values and the store with its defaults: no proxy, no Tor, no credentials.
+Install seeds both configuration files with their enforced values and the store with its defaults: no proxy, no Tor, no daemon RPC credentials, and a generated wallet RPC login.
 
 The node then starts and **syncs the Monero blockchain**, which is a long, disk-heavy operation. The sync check reports progress as a percentage the whole way.
 
@@ -153,7 +153,7 @@ There is no task and no wizard — a fresh install is a working clearnet node. E
 
 ## Actions
 
-Nine actions, in two groups plus one hidden.
+Ten actions, in two groups plus one hidden.
 
 ### Configuration
 
@@ -188,7 +188,11 @@ The username and password for the node's RPC.
 
 The credentials for the wallet RPC server.
 
-- **What it changes:** the wallet RPC configuration. Whether credentials are set decides which mutually exclusive flag the server is started with, so the file is never the source of truth for the "disabled" case.
+- **What it changes:** the `rpc-login` in the wallet RPC configuration, which the server reads at start. Credentials cannot be turned off.
+
+#### Wallet RPC Credentials
+
+Shows the wallet RPC username and password, the password masked; both copyable. Changes nothing.
 
 #### Other Settings
 
@@ -249,7 +253,7 @@ Everything that cannot be recovered from the network is kept: the **wallet volum
 ## Limitations and Differences
 
 1. **The blockchain is not backed up.** A restore re-syncs from the network.
-2. **The Wallet RPC is exported with no credentials by default**, and it can spend from any wallet it can open.
+2. **The Wallet RPC is exported**, and whoever holds its credentials can spend from any wallet it can open.
 3. **Tor inbound needs an onion address added by hand** to the Peer interface before it can work.
 4. **The images are a third-party build**, not the Monero project's own.
 5. **Several config keys cannot be set in the file** — the proxy and inbound flags are computed at start and stripped from the file on read.
@@ -276,7 +280,7 @@ volumes:
   wallet: /home/monero/wallet
 file_models:
   - monero.conf # raw key=value, verbatim; enforced literals + keys forced undefined because they are CLI args
-  - monero-wallet-rpc.conf # ini; disable-rpc-login forced undefined, added as a flag instead
+  - monero-wallet-rpc.conf # ini; rpc-login generated at install, disable-rpc-login forced undefined
   - store.json # anonymity intents, dbSalvage and resync flags
   - ban_list.txt # raw; seeded from the image's bundled list
 startos_managed_env_vars: [] # everything is config files plus computed CLI args
@@ -285,7 +289,7 @@ dependencies:
 interfaces:
   peer: { type: p2p, port: 18080 }
   rpc-restricted: { type: api, port: 18089 }
-  rpc-wallet: { type: api, port: 28088 } # unauthenticated by default
+  rpc-wallet: { type: api, port: 28088 } # HTTP Digest login always required
   zmq-pubsub: { type: api, port: 18083 } # only while ZMQ is enabled
   # the unrestricted RPC (18081) and ZeroMQ RPC (18082) are bound in-container but never exported
 actions:
@@ -294,6 +298,7 @@ actions:
   - ban-list-config
   - rpc-config
   - wallet-rpc-config
+  - wallet-rpc-credentials
   - other-config
   - autoconfig # hidden; for dependent services
   - db-salvage

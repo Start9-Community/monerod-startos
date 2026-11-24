@@ -142,10 +142,14 @@ const dict = {
 
   // fileModels/monero-wallet-rpc.conf.ts
   'Wallet RPC Credentials': 118,
-  'Whether the wallet RPC requires a username and password.\n- Disabled: any client that can reach the wallet RPC can use it.\n- Enabled: every client must authenticate with the username and password set here.': 119,
   'Wallet RPC Username': 120,
   "Changing this value will necessitate a restart of all services that depend on Monero's wallet RPC.": 122,
   'Wallet RPC Password': 123,
+
+  // actions/config/walletRpc.ts
+  'Show the username and password that clients use to connect to the Wallet RPC Interface': 133,
+  'Wallet RPC credentials are not set': 134,
+  'Every client of the Wallet RPC Interface must authenticate with these credentials.': 135,
 
   // actions/config/autoconfig.ts
   'Auto-Configure': 125,
