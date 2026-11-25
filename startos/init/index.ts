@@ -4,6 +4,7 @@ import { setInterfaces } from '../interfaces'
 import { versionGraph } from '../versions'
 import { actions } from '../actions'
 import { restoreInit } from '../backups'
+import { onionTarget } from './onionTarget'
 import { taskInit } from './taskInit'
 
 export const init = sdk.setupInit(
@@ -13,6 +14,7 @@ export const init = sdk.setupInit(
   setInterfaces,
   actions,
   dependencies,
+  onionTarget,
 )
 
 export const uninit = sdk.setupUninit(versionGraph)

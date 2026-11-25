@@ -123,6 +123,8 @@ Enabling any Tor intent adds the dependency; turning them all off removes it.
 
 **Inbound over Tor additionally needs an onion address on the Peer interface**, added by the user through the interface's address settings. Until it exists, the node cannot advertise a hidden service, and the Tor health check says so rather than failing silently. Because monerod refuses to accept anonymous inbound without a transaction proxy on the same zone, turning inbound on turns outbound on with it.
 
+**Tor forwards the Peer interface's onion to port 18084, not 18080.** The peer host binds 18084 with no interface, so only the internal bridge reaches it, and an init step points the onion there through Tor's hidden Set Onion Target action (Tor 0.4.9.17:4 or later; until it runs, onion peers arrive on 18080 as clearnet peers do). monerod's anonymous-inbound listener binds `0.0.0.0:18084` and advertises the onion's own host and port. monerod replaces the source address of every connection on that listener with an unknown Tor address, so onion peers are Tor-zone peers: they see the Tor zone's fixed peer id rather than the clearnet node's random one, count against Max Tor Inbound Connections rather than the per-IP limit, and cannot be banned as a group. While inbound is off nothing listens on 18084, and connections to the onion are refused.
+
 ## Network Access and Interfaces
 
 Up to four interfaces, one of which exists only when ZMQ is enabled.
@@ -134,7 +136,7 @@ Up to four interfaces, one of which exists only when ZMQ is enabled.
 | Wallet RPC     | `rpc-wallet`     | api  | 28088 | Server-side wallet management       |
 | ZeroMQ Pub-Sub | `zmq-pubsub`     | api  | 18083 | Block and transaction notifications |
 
-The peer and ZeroMQ bindings are raw TCP with the external port preserved; the two RPC bindings are HTTP.
+The peer and ZeroMQ bindings are raw TCP with the external port preserved; the two RPC bindings are HTTP. The peer host also binds 18084, with no interface, as the Tor onion's target (see [Dependencies](#dependencies)).
 
 **The unrestricted RPC listens on loopback only.** monerod binds it to `127.0.0.1` inside the service, so no other service on this server can reach it, and nothing publishes an address for it — the restricted port is what wallets and dependents are given.
 
@@ -259,7 +261,7 @@ Everything that cannot be recovered from the network is kept: the **wallet volum
 
 1. **The blockchain is not backed up.** A restore re-syncs from the network.
 2. **The Wallet RPC is exported**, and whoever holds its credentials can spend from any wallet it can open.
-3. **Tor inbound needs an onion address added by hand** to the Peer interface before it can work.
+3. **Tor inbound needs an onion address added by hand** to the Peer interface before it can work, and the onion takes no peers while inbound is off.
 4. **The images are a third-party build**, not the Monero project's own.
 5. **Several config keys cannot be set in the file** — the proxy and inbound flags are computed at start and stripped from the file on read.
 6. **Enabling pruning does not shrink an existing database**; only a resync does.
@@ -291,9 +293,9 @@ file_models:
   - ban_list.txt # raw; seeded from the image's bundled list
 startos_managed_env_vars: [] # everything is config files plus computed CLI args
 dependencies:
-  - tor # optional, kind: running, active only while a Tor intent is enabled
+  - tor # optional, kind: running, >=0.4.9.17:4, active only while a Tor intent is enabled
 interfaces:
-  peer: { type: p2p, port: 18080 }
+  peer: { type: p2p, port: 18080 } # the same host binds 18084 unexported: Tor's onion target, monerod's anonymous-inbound listener
   rpc-restricted: { type: api, port: 18089 }
   rpc-wallet: { type: api, port: 28088 } # HTTP Digest login always required
   zmq-pubsub: { type: api, port: 18083 } # only while ZMQ is enabled

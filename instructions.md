@@ -55,5 +55,6 @@ If you publish the **Peer** interface through StartTunnel to keep your home IP p
 - **Pruning is one-way.** Once enabled in Other Settings, the blockchain cannot be un-pruned without running Resync Blockchain (a full re-download).
 - **No mining controls.** `--start-mining`, mining threads, and background mining are not exposed.
 - **No I2P.** Tor is the only anonymity network available today.
+- **A `.onion` address on the Peer interface takes peers only while Accept inbound connections over Tor is on.** With it off, nothing answers on that address.
 - **No bootstrap daemon.** The node always performs a full sync; there is no `--bootstrap-daemon-address` shortcut.
 - **Initial sync over Tor is slow.** Routing all outbound traffic through Tor before the chain is caught up can take significantly longer than a clearnet sync. Consider syncing on clearnet first, then turning Tor on.

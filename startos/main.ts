@@ -8,7 +8,7 @@ import { i18n } from './i18n'
 import { socksHostId, socksPort } from 'tor-startos/startos/utils'
 import { sdk } from './sdk'
 import {
-  p2pLocalBindPort,
+  p2pOnionPort,
   p2pPort,
   peerHostId,
   peerInterfaceId,
@@ -184,11 +184,11 @@ export const main = sdk.setupMain(async ({ effects }) => {
     .const()
 
   // Peer interface reachability — restarts monerod if either value changes.
-  //   onionHost: own onion hostname (from the Tor plugin), needed for
+  //   onionAddress: own onion host:port (from the Tor plugin), needed for
   //     --anonymous-inbound
   //   hasPublicIpv4: whether a public IPv4 is published, gating clearnet
   //     inbound (without one, monerod can only make outbound clearnet conns)
-  const { onionHost: peerOnionHost, hasPublicIpv4 } = await sdk.host
+  const { onionAddress: peerOnionAddress, hasPublicIpv4 } = await sdk.host
     .getOwn(effects, peerHostId, (host) => {
       const iface =
         host &&
@@ -196,9 +196,9 @@ export const main = sdk.setupMain(async ({ effects }) => {
           .flatMap((b) => Object.values(b.interfaces))
           .find((i) => i.id === peerInterfaceId)
       const pub = iface?.addressInfo?.public
+      const onion = pub?.filter({ pluginId: 'tor' }).hostnames[0]
       return {
-        onionHost:
-          pub?.filter({ pluginId: 'tor' }).hostnames[0]?.hostname ?? '',
+        onionAddress: onion ? `${onion.hostname}:${onion.port ?? p2pPort}` : '',
         hasPublicIpv4:
           (pub?.filter({ kind: 'ipv4' }).hostnames.length ?? 0) > 0,
       }
@@ -217,9 +217,9 @@ export const main = sdk.setupMain(async ({ effects }) => {
   // monerod requires --tx-proxy for the tor zone whenever --anonymous-inbound
   // is configured for tor (otherwise the daemon errors at startup), so any
   // active inbound implies tx-proxy must be set too. A .onion on the Peer
-  // interface only exists once Tor is installed, so peerOnionHost is the
+  // interface only exists once Tor is installed, so peerOnionAddress is the
   // implicit "Tor present" gate for inbound.
-  const inboundReady = !!(store.torInbound && peerOnionHost)
+  const inboundReady = !!(store.torInbound && peerOnionAddress)
   const txProxyActive = store.torOutbound || inboundReady
 
   const anonymityArgs: string[] = []
@@ -232,10 +232,11 @@ export const main = sdk.setupMain(async ({ effects }) => {
       (store.torDandelionNoise === false ? ',disable_noise' : '')
     anonymityArgs.push('--tx-proxy', txProxy)
   }
+  // Tor forwards the Peer onion here over the bridge (init/onionTarget.ts).
   if (inboundReady) {
     anonymityArgs.push(
       '--anonymous-inbound',
-      `${peerOnionHost}:${p2pPort},127.0.0.1:${p2pLocalBindPort},${store.torMaxInboundConns ?? 16}`,
+      `${peerOnionAddress},0.0.0.0:${p2pOnionPort},${store.torMaxInboundConns ?? 16}`,
     )
   }
   if (store.padTransactions) {
@@ -470,7 +471,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
               message: i18n('Tor is not running'),
             }
           }
-          if (store.torInbound && !peerOnionHost) {
+          if (store.torInbound && !peerOnionAddress) {
             return {
               result: 'failure',
               message: i18n(
