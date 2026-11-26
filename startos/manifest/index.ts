@@ -10,7 +10,7 @@ export const manifest = setupManifest({
   marketingUrl: 'https://getmonero.org',
   donationUrl: null,
   description: { short, long },
-  volumes: ['main', 'monerod', 'wallet'],
+  volumes: ['main', 'monerod', 'wallet', 'public'],
   images: {
     monerod: {
       source: {

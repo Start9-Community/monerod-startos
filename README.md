@@ -65,13 +65,14 @@ Four oneshots run before the daemons:
 
 ## Volume and Data Layout
 
-Three volumes, treated very differently.
+Four volumes, treated very differently.
 
 | Volume    | Mount Point               | Purpose                                  |
 | --------- | ------------------------- | ---------------------------------------- |
 | `main`    | — not mounted             | The package's own store                  |
 | `monerod` | `/home/monero/.bitmonero` | The blockchain, the config, the ban list |
 | `wallet`  | `/home/monero/wallet`     | Wallet files and the wallet RPC config   |
+| `public`  | — not mounted             | The daemon RPC login, for dependents     |
 
 | Path                     | Written by | Holds                               |
 | ------------------------ | ---------- | ----------------------------------- |
@@ -82,6 +83,8 @@ Three volumes, treated very differently.
 | `store.json` (on `main`) | Actions    | The anonymity intents and two flags |
 
 **`main` is never mounted into a container.** It holds only the package's own store, which is read and written by this package's code rather than by either daemon — which is also why it is the one volume neither daemon can corrupt.
+
+**Dependents mount `public` (`rpcVolumeId`), never `monerod`**, which holds the chain and `monero.conf`. While daemon RPC credentials are on, `main` writes `rpc-login` (`rpcLoginFileName`, `username:password`, mode 0600) there on every start, through a temp file and a rename; while they are off it deletes it, so its absence means no login is needed. Mount the volume, never the file: a file mount keeps the copy of the start it was made on.
 
 ## File Models
 
@@ -133,7 +136,9 @@ Up to four interfaces, one of which exists only when ZMQ is enabled.
 
 The peer and ZeroMQ bindings are raw TCP with the external port preserved; the two RPC bindings are HTTP.
 
-**The unrestricted RPC port is not exported.** monerod listens on it inside the service, and nothing publishes an address for it — the restricted port is what wallets and dependents are given.
+**The unrestricted RPC listens on loopback only.** monerod binds it to `127.0.0.1` inside the service, so no other service on this server can reach it, and nothing publishes an address for it — the restricted port is what wallets and dependents are given.
+
+**Neither RPC port sends CORS headers**, so a web page from another site can't read from the node through a visitor's browser.
 
 **The ZeroMQ Pub-Sub interface is conditional.** It is exported only while ZMQ is enabled in the configuration, so enabling it and restarting is what makes it appear. The ZeroMQ RPC (18082) listens on localhost inside the service and is never exported.
 
@@ -141,7 +146,7 @@ The peer and ZeroMQ bindings are raw TCP with the external port preserved; the t
 
 **The Wallet RPC is exported and always requires a login.** Install generates a random username and password, and the login cannot be turned off. Anyone holding the credentials who can reach the address can create and open wallets on this server, read their seeds and spend from them, so treat both as sensitive.
 
-Daemon RPC credentials are separate and also off by default. Setting them applies to both RPC ports at once, and the package's own sync check authenticates with them over HTTP Digest.
+Daemon RPC credentials are separate and also off by default. Setting them applies to both RPC ports at once, and the package's own sync check authenticates with them over HTTP Digest. Dependents read them from `public` (see [Volume and Data Layout](#volume-and-data-layout)).
 
 ## Installation and First-Run Flow
 
@@ -244,7 +249,7 @@ Two daemon checks and three standalone ones.
 
 ## Backups and Restore
 
-All three volumes are copied, with the heavy and rebuildable parts excluded — `sdk.Backups.ofVolumes(...).setOptions({ exclude })`.
+`main`, `monerod` and `wallet` are copied, with the heavy and rebuildable parts excluded — `sdk.Backups.ofVolumes(...).setOptions({ exclude })`. `public` is not: `main` rewrites it on every start.
 
 **The blockchain database is excluded**, along with the logs and the peer-state files. It is public data that re-downloads, and including it would make every backup as large as the chain. **A restored node therefore syncs from scratch**, which is the intended trade.
 
@@ -258,7 +263,7 @@ Everything that cannot be recovered from the network is kept: the **wallet volum
 4. **The images are a third-party build**, not the Monero project's own.
 5. **Several config keys cannot be set in the file** — the proxy and inbound flags are computed at start and stripped from the file on read.
 6. **Enabling pruning does not shrink an existing database**; only a resync does.
-7. **The unrestricted RPC has no exported address.**
+7. **The unrestricted RPC is reachable only from inside the service.**
 8. **The ZeroMQ Pub-Sub interface only exists while ZMQ is enabled**, and appears after a restart; the ZeroMQ RPC is never exported.
 
 ---
@@ -278,6 +283,7 @@ volumes:
   main: null # store.json only; not mounted into any container, but is backed up
   monerod: /home/monero/.bitmonero
   wallet: /home/monero/wallet
+  public: null # rpc-login for dependents while daemon RPC credentials are on; not backed up
 file_models:
   - monero.conf # raw key=value, verbatim; enforced literals + keys forced undefined because they are CLI args
   - monero-wallet-rpc.conf # ini; rpc-login generated at install, disable-rpc-login forced undefined
@@ -291,7 +297,7 @@ interfaces:
   rpc-restricted: { type: api, port: 18089 }
   rpc-wallet: { type: api, port: 28088 } # HTTP Digest login always required
   zmq-pubsub: { type: api, port: 18083 } # only while ZMQ is enabled
-  # the unrestricted RPC (18081) and ZeroMQ RPC (18082) are bound in-container but never exported
+  # the unrestricted RPC (18081) binds loopback only; the ZeroMQ RPC (18082) is bound in-container; neither is exported
 actions:
   - peers-config
   - anonymity-config
