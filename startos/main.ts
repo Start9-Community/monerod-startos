@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from 'node:crypto'
-import { rm } from 'fs/promises'
+import { rename, rm, writeFile } from 'fs/promises'
 import { Agent, IncomingHttpHeaders, request } from 'node:http'
 import { moneroConfFile } from './fileModels/monero.conf'
 import { walletRpcConfFile } from './fileModels/monero-wallet-rpc.conf'
@@ -12,7 +12,9 @@ import {
   p2pPort,
   peerHostId,
   peerInterfaceId,
+  rpcLoginFileName,
   rpcRestrictedPort,
+  rpcVolumeId,
   walletRpcPort,
 } from './utils'
 
@@ -145,6 +147,18 @@ export const main = sdk.setupMain(async ({ effects }) => {
     if (!username || !password) return null
     return { username, password }
   })()
+
+  const rpcLoginPath = `/media/startos/volumes/${rpcVolumeId}/${rpcLoginFileName}`
+  if (rpcCreds) {
+    await writeFile(
+      `${rpcLoginPath}.tmp`,
+      `${rpcCreds.username}:${rpcCreds.password}`,
+      { mode: 0o600 },
+    )
+    await rename(`${rpcLoginPath}.tmp`, rpcLoginPath)
+  } else {
+    await rm(rpcLoginPath, { force: true })
+  }
 
   // Anonymity intents live in store.json and drive the Tor CLI args below.
   // init seeds store.json, so the read is guaranteed non-null here.

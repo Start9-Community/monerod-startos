@@ -48,10 +48,12 @@ export const shape = z.looseObject({
   'p2p-use-ipv6': z.literal(1).catch(1),
   'p2p-bind-ipv6-address': z.literal('::').catch('::'),
   'p2p-bind-port-ipv6': z.literal(p2pPort).catch(p2pPort),
-  'rpc-bind-ip': z.literal('0.0.0.0').catch('0.0.0.0'),
+  // The unrestricted RPC serves admin methods, so nothing outside the container may reach it.
+  'rpc-bind-ip': z.literal('127.0.0.1').catch('127.0.0.1'),
   'rpc-bind-port': z.literal(rpcPort).catch(rpcPort),
-  'confirm-external-bind': z.literal(1).catch(1),
-  'rpc-access-control-origins': z.literal('*').catch('*'),
+  // Enforced undefined: the shape is loose, so a legacy value would otherwise survive.
+  'confirm-external-bind': z.undefined().catch(undefined),
+  'rpc-access-control-origins': z.undefined().catch(undefined),
   'rpc-restricted-bind-ip': z.literal('0.0.0.0').catch('0.0.0.0'),
   'rpc-restricted-bind-port': z
     .literal(rpcRestrictedPort)
