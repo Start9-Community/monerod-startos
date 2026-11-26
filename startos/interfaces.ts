@@ -2,6 +2,7 @@ import { moneroConfFile } from './fileModels/monero.conf'
 import { i18n } from './i18n'
 import { sdk } from './sdk'
 import {
+  p2pOnionPort,
   p2pPort,
   peerHostId,
   peerInterfaceId,
@@ -21,6 +22,13 @@ export const setInterfaces = sdk.setupInterfaces(async ({ effects }) => {
 
   // Peer-to-peer interface
   const peerMulti = sdk.MultiHost.of(effects, peerHostId)
+  // No exported interface: off the LAN, though every service on the bridge reaches it.
+  await peerMulti.bindPort(p2pOnionPort, {
+    protocol: null,
+    preferredExternalPort: p2pOnionPort,
+    addSsl: null,
+    secure: { ssl: false },
+  })
   const peerOrigin = await peerMulti.bindPort(p2pPort, {
     protocol: null,
     addSsl: null,
