@@ -6,17 +6,22 @@ export const p2pOnionPort = 18084
 export const zmqPort = 18082
 export const zmqPubsubPort = 18083
 export const walletRpcPort = 28088
+/** Bridge-only port where other services reach the loopback unrestricted RPC, behind a login. */
+export const rpcUnrestrictedPort = 18085
 
 // Dependents mount this volume read-only, never `monerod`, which holds the chain and the config.
 export const rpcVolumeId = 'public'
 // `username:password` while daemon RPC credentials are on; absent while they are off.
 export const rpcLoginFileName = 'rpc-login'
+// `username:password` the unrestricted RPC on `rpcUnrestrictedPort` accepts.
+export const rpcUnrestrictedLoginFileName = 'rpc-unrestricted-login'
 
 // Host ids (the `sdk.MultiHost.of` groups) — distinct from the interface ids
 // exported on them. Used for `sdk.host.getOwn`/`get` lookups. Dependents
 // (e.g. btcpayserver) import these rather than hardcoding string literals.
 export const peerHostId = 'peer'
 export const rpcRestrictedHostId = 'rpc-restricted'
+export const rpcUnrestrictedHostId = 'rpc-unrestricted'
 export const walletRpcHostId = 'rpc-wallet'
 export const zmqPubsubHostId = 'zmq-pubsub'
 

@@ -28,6 +28,8 @@ The node starts on clearnet immediately after install; there is no setup wizard.
 
 External wallets (Anonero, Cake, Feather, Monero GUI, Monerujo, etc.) connect to the **RPC Interface** — this is the restricted RPC endpoint on port `18089`. Use the LAN or `.onion` address shown on the interface panel. The full unrestricted RPC is not exposed externally.
 
+Other services on this server that need the full RPC, such as P2Pool for mining, reach it automatically, always with a login. It is never reachable from your network.
+
 The **Wallet RPC Interface** runs `monero-wallet-rpc` for programmatic server-side wallet operations and is typically consumed by other services rather than browsed directly. Every client must log in with the username and password generated at install; run **Wallet RPC Credentials** to view and copy them.
 
 > **Warning:** the Wallet RPC can create and open wallets on this server, reveal their seeds, and spend from them. Anyone who has its credentials and can reach its address has that control. Keep the credentials private, and add a Tor or public address to this interface only if you need one.

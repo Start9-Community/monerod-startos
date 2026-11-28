@@ -9,6 +9,8 @@ import {
   rpcRestrictedHostId,
   rpcRestrictedInterfaceId,
   rpcRestrictedPort,
+  rpcUnrestrictedHostId,
+  rpcUnrestrictedPort,
   walletRpcHostId,
   walletRpcInterfaceId,
   walletRpcPort,
@@ -68,6 +70,18 @@ export const setInterfaces = sdk.setupInterfaces(async ({ effects }) => {
     query: {},
   })
   receipts.push(await rpcOrigin.export([rpc]))
+
+  // Unrestricted RPC for other services: no exported interface, so it stays off
+  // the LAN; only the bridge reaches it, through the login unrestrictedRpc.ts enforces.
+  await sdk.MultiHost.of(effects, rpcUnrestrictedHostId).bindPort(
+    rpcUnrestrictedPort,
+    {
+      protocol: null,
+      preferredExternalPort: rpcUnrestrictedPort,
+      addSsl: null,
+      secure: { ssl: false },
+    },
+  )
 
   // Wallet RPC interface
   const walletMulti = sdk.MultiHost.of(effects, walletRpcHostId)

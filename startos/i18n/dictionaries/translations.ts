@@ -130,6 +130,9 @@ export default {
     133: 'Muestra el nombre de usuario y la contraseña que usan los clientes para conectarse a la interfaz RPC del monedero',
     134: 'Las credenciales RPC del monedero no están configuradas',
     135: 'Todo cliente de la interfaz RPC del monedero debe autenticarse con estas credenciales.',
+    139: 'RPC sin restricciones',
+    140: 'Otros servicios pueden usar el RPC sin restricciones',
+    141: 'El RPC sin restricciones no es accesible',
   } satisfies LangDict,
   de_DE: {
     0: 'Monero wird gestartet!',
@@ -260,6 +263,9 @@ export default {
     133: 'Zeigt den Benutzernamen und das Passwort, mit denen sich Clients mit der Wallet-RPC-Schnittstelle verbinden',
     134: 'Die Wallet-RPC-Anmeldeinformationen sind nicht festgelegt',
     135: 'Jeder Client der Wallet-RPC-Schnittstelle muss sich mit diesen Anmeldeinformationen authentifizieren.',
+    139: 'Uneingeschränktes RPC',
+    140: 'Andere Dienste können das uneingeschränkte RPC nutzen',
+    141: 'Das uneingeschränkte RPC ist nicht erreichbar',
   } satisfies LangDict,
   pl_PL: {
     0: 'Uruchamianie Monero!',
@@ -390,6 +396,9 @@ export default {
     133: 'Pokaż nazwę użytkownika i hasło, których klienci używają do łączenia się z interfejsem RPC portfela',
     134: 'Poświadczenia RPC portfela nie są ustawione',
     135: 'Każdy klient interfejsu RPC portfela musi uwierzytelnić się tymi poświadczeniami.',
+    139: 'Nieograniczone RPC',
+    140: 'Inne usługi mogą korzystać z nieograniczonego RPC',
+    141: 'Nieograniczone RPC jest niedostępne',
   } satisfies LangDict,
   fr_FR: {
     0: 'Démarrage de Monero !',
@@ -520,5 +529,8 @@ export default {
     133: "Affiche le nom d'utilisateur et le mot de passe que les clients utilisent pour se connecter à l'interface RPC du portefeuille",
     134: 'Les identifiants RPC du portefeuille ne sont pas définis',
     135: "Chaque client de l'interface RPC du portefeuille doit s'authentifier avec ces identifiants.",
+    139: 'RPC sans restriction',
+    140: "D'autres services peuvent utiliser le RPC sans restriction",
+    141: 'Le RPC sans restriction est inaccessible',
   } satisfies LangDict,
 } satisfies Record<string, LangDict>
