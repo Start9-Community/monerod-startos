@@ -72,19 +72,19 @@ Four volumes, treated very differently.
 | `main`    | — not mounted             | The package's own store                  |
 | `monerod` | `/home/monero/.bitmonero` | The blockchain, the config, the ban list |
 | `wallet`  | `/home/monero/wallet`     | Wallet files and the wallet RPC config   |
-| `public`  | — not mounted             | The daemon RPC login, for dependents     |
+| `public`  | — not mounted             | RPC logins, for dependents               |
 
-| Path                     | Written by | Holds                               |
-| ------------------------ | ---------- | ----------------------------------- |
-| `lmdb/`                  | monerod    | The blockchain database             |
-| `monero.conf`            | Actions    | The node configuration              |
-| `ban_list.txt`           | An action  | Peers banned at start               |
-| `monero-wallet-rpc.conf` | Actions    | The wallet RPC configuration        |
-| `store.json` (on `main`) | Actions    | The anonymity intents and two flags |
+| Path                     | Written by | Holds                                                                        |
+| ------------------------ | ---------- | ---------------------------------------------------------------------------- |
+| `lmdb/`                  | monerod    | The blockchain database                                                      |
+| `monero.conf`            | Actions    | The node configuration                                                       |
+| `ban_list.txt`           | An action  | Peers banned at start                                                        |
+| `monero-wallet-rpc.conf` | Actions    | The wallet RPC configuration                                                 |
+| `store.json` (on `main`) | Actions    | The anonymity intents, two flags, and the unrestricted RPC's generated login |
 
 **`main` is never mounted into a container.** It holds only the package's own store, which is read and written by this package's code rather than by either daemon — which is also why it is the one volume neither daemon can corrupt.
 
-**Dependents mount `public` (`rpcVolumeId`), never `monerod`**, which holds the chain and `monero.conf`. While daemon RPC credentials are on, `main` writes `rpc-login` (`rpcLoginFileName`, `username:password`, mode 0600) there on every start, through a temp file and a rename; while they are off it deletes it, so its absence means no login is needed. Mount the volume, never the file: a file mount keeps the copy of the start it was made on.
+**Dependents mount `public` (`rpcVolumeId`), never `monerod`**, which holds the chain and `monero.conf`. While daemon RPC credentials are on, `main` writes `rpc-login` (`rpcLoginFileName`, `username:password`, mode 0600) there on every start, through a temp file and a rename; while they are off it deletes it, so its absence means no login is needed. It also writes `rpc-unrestricted-login` (`rpcUnrestrictedLoginFileName`) on every start: the login the unrestricted RPC on 18085 accepts. Mount the volume, never the file: a file mount keeps the copy of the start it was made on.
 
 ## File Models
 
@@ -138,7 +138,14 @@ Up to four interfaces, one of which exists only when ZMQ is enabled.
 
 The peer and ZeroMQ bindings are raw TCP with the external port preserved; the two RPC bindings are HTTP. The peer host also binds 18084, with no interface, as the Tor onion's target (see [Dependencies](#dependencies)).
 
-**The unrestricted RPC listens on loopback only.** monerod binds it to `127.0.0.1` inside the service, so no other service on this server can reach it, and nothing publishes an address for it — the restricted port is what wallets and dependents are given.
+**monerod's unrestricted RPC listens on loopback only.** monerod binds it to `127.0.0.1:18081` inside the service, and nothing publishes an address for it — the restricted port is what wallets and most dependents are given.
+
+**Other services reach it on 18085, always behind a login.** Software that submits blocks, such as P2Pool, needs the unrestricted RPC. The `rpc-unrestricted` host (`rpcUnrestrictedHostId`, `rpcUnrestrictedPort`) binds 18085 with no exported interface, so it stays off the LAN, and the `unrestricted-rpc` daemon, package code in `startos/unrestrictedRpc.ts`, forwards it to the loopback RPC. monerod has one `rpc-login` for both of its RPC ports, so the login is handled in one of two ways:
+
+- **Daemon RPC credentials on:** monerod already requires them on 18081, so the daemon relays each connection byte for byte and the login is the daemon login. It cannot proxy at the HTTP level: monerod honours a Digest nonce only on the connection that issued it.
+- **Daemon RPC credentials off:** the daemon requires HTTP Digest (MD5, `qop=auth`, what P2Pool's libcurl client sends) with `unrestrictedRpcLogin`, a login generated into `store.json`, before forwarding. Nonce counts must increase for each nonce/client-nonce pair; accepted counts remain tracked until the nonce expires. The restricted RPC and the wallets using it keep working without a login.
+
+Either way the accepted login is published as `public/rpc-unrestricted-login`. A dependent reads it from there and resolves the host with `getBridgeAddress`.
 
 **Neither RPC port sends CORS headers**, so a web page from another site can't read from the node through a visitor's browser.
 
@@ -189,7 +196,7 @@ The list of addresses and subnets the node bans at start.
 
 The username and password for the node's RPC.
 
-- **What it changes:** the credentials in the node configuration, **and** the matching daemon login in the wallet RPC configuration, so the wallet server keeps working.
+- **What it changes:** the credentials in the node configuration, **and** the matching daemon login in the wallet RPC configuration, so the wallet server keeps working. Turning credentials on or off also switches how the unrestricted RPC on 18085 checks its login, described under [Network Access and Interfaces](#network-access-and-interfaces).
 
 #### Wallet RPC Settings
 
@@ -265,7 +272,7 @@ Everything that cannot be recovered from the network is kept: the **wallet volum
 4. **The images are a third-party build**, not the Monero project's own.
 5. **Several config keys cannot be set in the file** — the proxy and inbound flags are computed at start and stripped from the file on read.
 6. **Enabling pruning does not shrink an existing database**; only a resync does.
-7. **The unrestricted RPC is reachable only from inside the service.**
+7. **Other services reach the unrestricted RPC only on bridge-only 18085**, never from the LAN, and always with a login.
 8. **The ZeroMQ Pub-Sub interface only exists while ZMQ is enabled**, and appears after a restart; the ZeroMQ RPC is never exported.
 
 ---
@@ -285,11 +292,11 @@ volumes:
   main: null # store.json only; not mounted into any container, but is backed up
   monerod: /home/monero/.bitmonero
   wallet: /home/monero/wallet
-  public: null # rpc-login for dependents while daemon RPC credentials are on; not backed up
+  public: null # rpc-login while daemon RPC credentials are on, and rpc-unrestricted-login always; not backed up
 file_models:
   - monero.conf # raw key=value, verbatim; enforced literals + keys forced undefined because they are CLI args
   - monero-wallet-rpc.conf # ini; rpc-login generated at install, disable-rpc-login forced undefined
-  - store.json # anonymity intents, dbSalvage and resync flags
+  - store.json # anonymity intents, dbSalvage and resync flags, and the unrestricted RPC's generated login
   - ban_list.txt # raw; seeded from the image's bundled list
 startos_managed_env_vars: [] # everything is config files plus computed CLI args
 dependencies:
@@ -299,7 +306,7 @@ interfaces:
   rpc-restricted: { type: api, port: 18089 }
   rpc-wallet: { type: api, port: 28088 } # HTTP Digest login always required
   zmq-pubsub: { type: api, port: 18083 } # only while ZMQ is enabled
-  # the unrestricted RPC (18081) binds loopback only; the ZeroMQ RPC (18082) is bound in-container; neither is exported
+  # the unrestricted RPC (18081) binds loopback only and is served behind a login on bridge-only 18085 (host rpc-unrestricted); the ZeroMQ RPC (18082) is bound in-container; none is exported
 actions:
   - peers-config
   - anonymity-config

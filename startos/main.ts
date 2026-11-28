@@ -7,13 +7,17 @@ import { storeJson } from './fileModels/store.json'
 import { i18n } from './i18n'
 import { socksHostId, socksPort } from 'tor-startos/startos/utils'
 import { sdk } from './sdk'
+import { serveUnrestrictedRpc } from './unrestrictedRpc'
 import {
   p2pOnionPort,
   p2pPort,
   peerHostId,
   peerInterfaceId,
   rpcLoginFileName,
+  rpcPort,
   rpcRestrictedPort,
+  rpcUnrestrictedLoginFileName,
+  rpcUnrestrictedPort,
   rpcVolumeId,
   walletRpcPort,
 } from './utils'
@@ -159,6 +163,28 @@ export const main = sdk.setupMain(async ({ effects }) => {
   } else {
     await rm(rpcLoginPath, { force: true })
   }
+
+  const unrestrictedLoginPath = `/media/startos/volumes/${rpcVolumeId}/${rpcUnrestrictedLoginFileName}`
+  const unrestrictedRpcLogin = (await storeJson
+    .read((s) => s.unrestrictedRpcLogin)
+    .const(effects))!
+  // monerod enforces its own login while daemon RPC credentials are on; otherwise the gate does.
+  const gateLogin: RpcCreds | null = rpcCreds
+    ? null
+    : (() => {
+        const colon = unrestrictedRpcLogin.indexOf(':')
+        return {
+          username: unrestrictedRpcLogin.slice(0, colon),
+          password: unrestrictedRpcLogin.slice(colon + 1),
+        }
+      })()
+  const unrestrictedLogin = rpcCreds ?? gateLogin!
+  await writeFile(
+    `${unrestrictedLoginPath}.tmp`,
+    `${unrestrictedLogin.username}:${unrestrictedLogin.password}`,
+    { mode: 0o600 },
+  )
+  await rename(`${unrestrictedLoginPath}.tmp`, unrestrictedLoginPath)
 
   // Anonymity intents live in store.json and drive the Tor CLI args below.
   // init seeds store.json, so the read is guaranteed non-null here.
@@ -388,6 +414,22 @@ export const main = sdk.setupMain(async ({ effects }) => {
           }),
       },
       requires: ['monerod', 'chown-wallet'],
+    })
+    .addDaemon('unrestricted-rpc', {
+      subcontainer: null,
+      exec: {
+        fn: (_, abort) =>
+          serveUnrestrictedRpc(rpcUnrestrictedPort, rpcPort, gateLogin, abort),
+      },
+      ready: {
+        display: i18n('Unrestricted RPC'),
+        fn: () =>
+          sdk.healthCheck.checkPortListening(effects, rpcUnrestrictedPort, {
+            successMessage: i18n('Other services can use the unrestricted RPC'),
+            errorMessage: i18n('The unrestricted RPC is unreachable'),
+          }),
+      },
+      requires: ['monerod'],
     })
     .addHealthCheck('sync-progress', {
       ready: {

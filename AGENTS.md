@@ -39,3 +39,4 @@ verified, tried, and decided belongs in the commit message and the PR body.
 - **Keep `monero.conf` on its verbatim `FileHelper.raw` writer, never `FileHelper.ini`** — the `ini` writer quotes any value containing `=` or starting with `[`, and monerod keeps the quotes.
 - **Keep `nocow` in the `monerod` daemon's `requires`** — `chattr +C` takes only on directories and empty files, so it has to run before the database is opened.
 - **Keep `rpc-credentials`' `disabled`/`enabled` union and its `username`/`password` fields** — moneroblock reads them through `moneroConfFile` to authenticate to the restricted RPC.
+- **Never bind the unrestricted RPC (`rpc-bind-ip`) off `127.0.0.1`** — other services reach it through `startos/unrestrictedRpc.ts` on 18085, which enforces the login daemon RPC credentials leave off.

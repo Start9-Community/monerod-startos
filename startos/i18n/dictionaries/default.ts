@@ -156,6 +156,11 @@ const dict = {
   'Automatically configure monero.conf for the needs of another service': 126,
   'These fields were provided by a task and cannot be edited': 127,
   'Enter a domain name, onion or IP address, without a port. Bracket IPv6 addresses.': 131,
+
+  // Unrestricted RPC for other services
+  'Unrestricted RPC': 139,
+  'Other services can use the unrestricted RPC': 140,
+  'The unrestricted RPC is unreachable': 141,
 } as const
 
 export type I18nKey = keyof typeof dict
